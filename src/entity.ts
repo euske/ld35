@@ -8,17 +8,14 @@
 //
 class Task {
 
-    alive: boolean;
-    layer: Layer;
-    ticks: number;
+    alive: boolean = true;
+    layer: Layer = null;
+    ticks: number = 0;
+    duration: number = 0;
     died: Slot;
-    duration: number;
 
     constructor() {
-	this.layer = null;
-	this.alive = true;
 	this.died = new Slot(this);
-	this.duration = 0;
     }
 
     start(layer: Layer) {
@@ -88,19 +85,16 @@ class Queue extends Task {
 //
 class Sprite extends Task {
 
-    visible: boolean;
-    zorder: number;
     bounds: Rect;
     src: ImageSource;
-    scale: Vec2;
+    visible: boolean = true;
+    zorder: number = 0;
+    scale: Vec2 = new Vec2(1, 1);
 
     constructor(bounds: Rect, src: ImageSource=null) {
 	super();
-	this.visible = true;
-	this.zorder = 0;
 	this.bounds = (bounds)? bounds.copy() : null;
 	this.src = src;
-	this.scale = new Vec2(1, 1);
     }
     
     toString() {
@@ -141,11 +135,10 @@ class Sprite extends Task {
 //
 class TiledSprite extends Sprite {
 
-    offset: Vec2;
+    offset: Vec2 = new Vec2();
     
     constructor(bounds: Rect, src: ImageSource) {
 	super(bounds, src);
-	this.offset = new Vec2();
     }
 
     render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
@@ -178,14 +171,12 @@ class TiledSprite extends Sprite {
 class Entity extends Sprite {
 
     hitbox: Rect;
-    maxspeed: Vec2;
-    movement: Vec2;
+    maxspeed: Vec2 = new Vec2(16,16);
+    movement: Vec2 = new Vec2();
 
     constructor(bounds: Rect, src: ImageSource=null, hitbox: Rect=null) {
 	super(bounds, src);
 	this.hitbox = (hitbox)? hitbox.copy() : null;
-	this.maxspeed = new Vec2(16, 16);
-	this.movement = new Vec2();
     }
 
     toString() {
@@ -279,18 +270,16 @@ interface JumpFunc {
 }
 class PhysicalEntity extends Entity {
 
-    velocity: Vec2;
-    jumpfunc: JumpFunc;
+    velocity: Vec2 = new Vec2();
+    jumpfunc: JumpFunc = (
+	(vy:number, t:number) => { return (0 <= t && t <= 4)? -8 : vy+2; }
+    );
     
     protected _jumpt: number;
     protected _jumpend: number;
 
     constructor(bounds: Rect, src: ImageSource=null, hitbox: Rect=null) {
 	super(bounds, src, hitbox);
-	this.velocity = new Vec2();
-	this.jumpfunc = (
-	    function (vy:number, t:number) { return (0 <= t && t <= 4)? -10 : vy+2; }
-	);
 	this._jumpt = Infinity;
 	this._jumpend = 0;
     }

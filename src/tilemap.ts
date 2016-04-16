@@ -26,14 +26,13 @@ class TileMap {
     map: [[number]];
     width: number;
     height: number;
-    rangemap: RangeMapMap;
+    rangemap: RangeMapMap = {};
 
     constructor(tilesize: number, map: [[number]]) {
 	this.tilesize = tilesize;
 	this.map = map;
 	this.width = map[0].length;
 	this.height = map.length;
-	this.rangemap = {};
     }
 
     get(x: number, y: number) {

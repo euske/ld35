@@ -234,7 +234,7 @@ class StarsLayer extends Layer {
     color: string;
     velocity: Vec2;
     maxdepth: number;
-    private _stars: [Star];
+    private _stars: [Star] = [] as [Star];
 
     constructor(frame: Rect, nstars: number,
 		color='white', velocity=new Vec2(-1,0), maxdepth=3) {
@@ -243,7 +243,6 @@ class StarsLayer extends Layer {
 	this.color = color;
 	this.velocity = velocity;
 	this.maxdepth = maxdepth;
-	this._stars = [] as [Star];
 	for (let i = 0; i < nstars; i++) {
 	    let star = new Star();
 	    star.init(this.maxdepth);

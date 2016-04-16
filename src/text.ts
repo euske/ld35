@@ -118,20 +118,16 @@ class TextBox extends Sprite {
     frame: Rect;
     font: Font;
     header: string;
-    linespace: number;
-    padding: number;
-    background: string;
-    segments: [TextSegment];
+    linespace: number = 0;
+    padding: number = 0;
+    background: string = null;
+    segments: [TextSegment] = [] as [TextSegment];
     
     constructor(frame: Rect, font: Font, header: string='') {
 	super(null);
 	this.frame = frame;
 	this.font = font;
 	this.header = header;
-	this.linespace = 0;
-	this.padding = 0;
-	this.background = null;
-	this.segments = [] as [TextSegment];
     }
 
     toString() {
@@ -352,17 +348,14 @@ class DisplayTask extends TextTask {
 
     text: string;
     font: Font;
-    interval: number;
-    sound: HTMLAudioElement;
-    private _index: number;
+    interval: number = 0;
+    sound: HTMLAudioElement = null;
+    private _index: number = 0;
 
     constructor(dialog: DialogBox, text: string) {
 	super(dialog);
 	this.text = text;
 	this.font = dialog.font;
-	this.interval = 0;
-	this.sound = null;
-	this._index = 0;
     }
 
     tick() {
@@ -500,21 +493,15 @@ class MenuTask extends TextTask {
 //
 class DialogBox extends TextBox {
 
-    interval: number;
-    autohide: boolean;
-    sound: HTMLAudioElement;
-    queue: [TextTask];
-    cursor: TextSegment;
-    blinking: number;
+    interval: number = 0;
+    autohide: boolean = false;
+    sound: HTMLAudioElement = null;
+    queue: [TextTask] = [] as [TextTask];
+    cursor: TextSegment = null;
+    blinking: number = 0;
     
     constructor(frame: Rect, font: Font, header: string='') {
 	super(frame, font, header);
-	this.interval = 0;
-	this.autohide = false;
-	this.sound = null;
-	this.queue = [] as [TextTask];
-	this.cursor = null;
-	this.blinking = 0;
     }
 
     render(ctx: CanvasRenderingContext2D, bx: number, by: number) {

@@ -243,11 +243,10 @@ interface Action {
 class Slot {
 
     object: any;
-    receivers: [Action];
+    receivers: [Action] = [] as [Action];
     
     constructor(object: any) {
 	this.object = object;
-	this.receivers = [] as [Action];
     }
 	
     toString() {

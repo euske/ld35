@@ -13,6 +13,40 @@ enum Tile {
     LADDER = 2,
 }
 
+// ChatBox
+class ChatBox extends DialogBox {
+    
+    screen: Rect;
+    border: string = 'white';
+    posy: number = 0;
+
+    constructor(screen:Rect, font:Font=null) {
+	super(new Rect(8, 8, screen.width-16, 50), font);
+	this.screen = screen;
+    }
+    
+    adjustPosition(y: number) {
+	if (y < this.posy+this.frame.height+8) {
+	    this.posy = this.screen.bottom()-this.frame.height-8;
+	} else if (this.posy-8 < y) {
+	    this.posy = this.screen.y;
+	}
+    }   
+	
+    render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
+	by += this.posy;
+	super.render(ctx, bx, by);
+	if (this.bounds !== null) {
+	    bx += this.bounds.x;
+	    by += this.bounds.y;
+	}
+	let rect = this.frame.inflate(5, 5);
+	ctx.lineWidth = 2;
+	ctx.strokeStyle = this.border;
+	ctx.strokeRect(bx+rect.x, by+rect.y, rect.width, rect.height);
+    }
+}
+
 
 //  Player
 //
@@ -68,6 +102,7 @@ class Game extends GameScene {
     sheet: SpriteSheet;
     tiles: SpriteSheet;
     
+    dialog: ChatBox;
     tilemap: TileMap;
     player: Player;
 
@@ -103,17 +138,19 @@ class Game extends GameScene {
 	
 	this.player = new Player(this, this.screen.center());
 	this.addObject(this.player);
-	
-	// show a banner.
-	let textbox = new TextBox(this.screen, this.app.font);
-	textbox.linespace = 2;
-	textbox.duration = 30;
-	textbox.putText(['GAEM!!1'], 'center', 'center');
-	this.addObject(textbox);
+
+	this.dialog = new ChatBox(this.screen, this.app.font);
+	this.dialog.linespace = 2;
+	this.dialog.padding = 4;
+	this.dialog.background = 'black';
+	this.dialog.addDisplay('I HAVE NO MEMORY.\nBLAH\nBLAH\nBHAL\nBLAE', 2);
+	this.dialog.start(this.layer);
     }
 
     tick() {
 	super.tick();
+	this.dialog.adjustPosition(this.player.bounds.y);
+	this.dialog.tick();
     }
 
     set_dir(v: Vec2) {
@@ -134,5 +171,6 @@ class Game extends GameScene {
 	    this.tilemap, this.tiles,
 	    (x:number,y:number,c:number) => { return this.tilemap.get(x,y); });
 	super.render(ctx, bx, by);
+	this.dialog.render(ctx, bx, by);
     }
 }

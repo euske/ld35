@@ -36,21 +36,21 @@ class App {
     screen: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
     
-    scene: Scene;
-    active: boolean;
-    keylock: number;
-    key_dir: Vec2;
-    key_action: boolean;
+    scene: Scene = null;
+    active: boolean = false;
+    keylock: number = 0 ;
+    key_dir: Vec2 = new Vec2();
+    key_action: boolean = false;
     
-    private _msgs: [Action]
-    private _music: HTMLAudioElement;
-    private _loop_start: number;
-    private _loop_end: number;
+    private _msgs: [Action] = [] as [Action];
+    private _music: HTMLAudioElement = null;
+    private _loop_start: number = 0;
+    private _loop_end: number = 0;
 
-    private _key_left: boolean;
-    private _key_right: boolean;
-    private _key_up: boolean;
-    private _key_down: boolean;
+    private _key_left: boolean = false;
+    private _key_right: boolean = false;
+    private _key_up: boolean = false;
+    private _key_down: boolean = false;
     
     constructor(framerate: number,
 		scale: number,
@@ -71,19 +71,6 @@ class App {
 	this.screen = createCanvas(this.frame.width/scale,
 				   this.frame.height/scale);
 	this.ctx = getEdgeyContext(this.screen);
-		
-	this.active = false;
-	this.key_action = false;
-	this.key_dir = new Vec2();
-	this.keylock = 0;
-
-	this._msgs = [] as [Action];
-	this._music = null;
-	
-	this._key_left = false;
-	this._key_right = false;
-	this._key_up = false;
-	this._key_down = false;
     }
 
     addElement(bounds: Rect) {
