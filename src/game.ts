@@ -326,6 +326,24 @@ class Fellow extends PlanningEntity implements Actor {
 }
 
 
+//  Boss
+// 
+class Boss extends PlatformerEntity {
+    scene: Game;
+    
+    constructor(scene: Game, bounds: Rect) {
+	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
+	this.zorder = 1;
+	this.scene = scene;
+    }
+    
+    update() {
+	super.update();
+	this.src = this.scene.sheet.get(1+rnd(4));
+    }
+}
+
+
 //  Game
 // 
 class Game extends GameScene {
@@ -379,8 +397,11 @@ class Game extends GameScene {
 		}
 		return false;
 	    });
+
+	this.addObject(new Boss(this, this.tilemap.map2coord(new Rect(2,2,8,8))));
 	
 	this.dialog = new ChatBox(this.screen, this.app.font);
+	this.dialog.zorder = 2;
 	this.dialog.linespace = 2;
 	this.dialog.padding = 4;
 	this.dialog.background = 'black';
