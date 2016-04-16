@@ -28,25 +28,29 @@ function isGrabbable(c:number) {
 // 
 class ChatBox extends DialogBox {
     
-    screen: Rect;
-    border: string = 'white';
-    posy: number = 0;
+    bounds1: Rect;
+    bounds2: Rect;
+    border: string;
 
     constructor(screen:Rect, font:Font=null) {
-	super(new Rect(8, 8, screen.width-16, 50), font);
-	this.screen = screen;
+	let bounds1 = screen.anchor(0,1).expand(screen.width, 56, 0,1);
+	super(bounds1.inflate(-8,-8), font);
+	this.bounds1 = bounds1;
+	this.bounds2 = screen.anchor(0,-1).expand(screen.width, 56, 0,-1);
+	this.bounds = this.bounds1;
+	this.border = 'white';
     }
     
-    adjustPosition(y: number) {
-	if (y < this.posy+this.frame.height+8) {
-	    this.posy = this.screen.bottom()-this.frame.height-8;
-	} else if (this.posy-8 < y) {
-	    this.posy = this.screen.y;
+    adjustPosition(rect: Rect) {
+	rect = rect.inflate(16, 16);
+	if (rect.overlap(this.bounds1)) {
+	    this.bounds = this.bounds2;
+	} else if (rect.overlap(this.bounds2)) {
+	    this.bounds = this.bounds1;
 	}
     }
 
     render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
-	by += this.posy;
 	super.render(ctx, bx, by);
 	if (this.bounds !== null) {
 	    bx += this.bounds.x;
@@ -109,6 +113,24 @@ class Actor extends PhysicalEntity {
 	return this.scene.screen;
     }
 
+    moveSmart(v: Vec2) {
+	v = v.copy();
+	if (v.y != 0) {
+	    if (v.y < 0 && !this.isHolding()) {
+		v.y = 0;
+	    } else if (this.getMove(v, this.hitbox, true).y == 0) {
+		let tilemap = this.scene.tilemap;
+		let dy = this.hitbox.height * sign(v.y);
+		if (tilemap.findTile(isGrabbable, this.hitbox.move(16, dy)) !== null) {
+		    v = new Vec2(4, 0);
+		} else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, dy)) !== null) {
+		    v = new Vec2(-4, 0);
+		}
+	    }
+	}
+	this.moveIfPossible(v, true);
+    }	
+
     setShape(shape: number) {
 	if (this.shape != shape) {
 	    this.shape = shape;
@@ -161,18 +183,7 @@ class Player extends Actor {
     
     update() {
 	super.update();
-	let movement = this.usermove;
-	if (this.usermove.y != 0 &&
-	    this.getMove(this.usermove, this.hitbox, true).y == 0) {
-	    let tilemap = this.scene.tilemap;
-	    let vy = this.hitbox.height * sign(this.usermove.y);
-	    if (tilemap.findTile(isGrabbable, this.hitbox.move(16, vy)) !== null) {
-		movement = new Vec2(4, 0);
-	    } else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, vy)) !== null) {
-		movement = new Vec2(-4, 0);
-	    }
-	}
-	this.moveIfPossible(movement, true);
+	this.moveSmart(this.usermove);
 	if (this._collide1 !== null &&
 	    this._collide0 === null) {
 	    this.change();
@@ -273,7 +284,7 @@ class Game extends GameScene {
 
     tick() {
 	super.tick();
-	this.dialog.adjustPosition(this.player.bounds.y);
+	this.dialog.adjustPosition(this.player.bounds);
 	this.dialog.tick();
     }
 
