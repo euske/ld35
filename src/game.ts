@@ -12,6 +12,16 @@ enum Tile {
     FLOOR = 1,
     LADDER = 2,
 }
+function isObstacle(c:number) {
+    return (c == Tile.FLOOR);
+}
+function isStoppable(c:number) {
+    return (c == Tile.FLOOR || c == Tile.LADDER);
+}
+function isGrabbable(c:number) {
+    return (c == Tile.LADDER);
+}
+
 
 // ChatBox
 class ChatBox extends DialogBox {
@@ -31,8 +41,8 @@ class ChatBox extends DialogBox {
 	} else if (this.posy-8 < y) {
 	    this.posy = this.screen.y;
 	}
-    }   
-	
+    }
+
     render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
 	by += this.posy;
 	super.render(ctx, bx, by);
@@ -53,38 +63,43 @@ class ChatBox extends DialogBox {
 class Player extends PhysicalEntity {
 
     scene: Game;
+    usermove: Vec2;
 
     constructor(scene: Game, pos: Vec2) {
 	let bounds = pos.expand(16, 16);
 	super(bounds, new DummyImageSource('white'), bounds);
 	this.scene = scene;
+	this.usermove = new Vec2();
     }
 
     setMove(v: Vec2) {
-	this.movement = v.scale(4);
+	this.usermove = v.scale(4);
     }
     
     update() {
+	if (this.usermove.y != 0 &&
+	    this.getMove(this.usermove, this.hitbox, true).y == 0) {
+	    let tilemap = this.scene.tilemap;
+	    let vy = this.hitbox.height * sign(this.usermove.y);
+	    if (tilemap.findTile(isGrabbable, this.hitbox.move(16, vy)) !== null) {
+		this.movement = new Vec2(4, 0);
+	    } else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, vy)) !== null) {
+		this.movement = new Vec2(-4, 0);
+	    }
+	} else {
+	    this.movement = this.usermove;
+	}
+
 	super.update();
     }
 
     isHolding() {
 	let tilemap = this.scene.tilemap;
-	function isGrabbable(x:number, y:number, c:number) {
-	    return (c == Tile.LADDER);
-	}
-	let r = tilemap.coord2map(this.hitbox);
-	return (tilemap.apply(isGrabbable, r) !== null);
+	return (tilemap.findTile(isGrabbable, this.hitbox) !== null);
     }
 
     getContactFor(v: Vec2, hitbox: Rect, force: boolean, range: Rect): Vec2 {
 	let tilemap = this.scene.tilemap;
-	function isObstacle(c:number) {
-	    return (c == Tile.FLOOR);
-	}
-	function isStoppable(c:number) {
-	    return (c == Tile.FLOOR || c == Tile.LADDER);
-	}
 	let f = (force || this.isHolding())? isObstacle : isStoppable;
 	return tilemap.contactTile(hitbox, f, v, range);
     }
