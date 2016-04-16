@@ -8,6 +8,11 @@
 //   requires: scene.ts
 //   requires: app.ts
 
+enum Tile {
+    FLOOR = 1,
+    LADDER = 2,
+}
+
 
 //  Player
 //
@@ -29,11 +34,24 @@ class Player extends PhysicalEntity {
 	super.update();
     }
 
+    isHolding() {
+	let tilemap = this.scene.tilemap;
+	function isGrabbable(x:number, y:number, c:number) {
+	    return (c == Tile.LADDER);
+	}
+	let r = tilemap.coord2map(this.hitbox);
+	return (tilemap.apply(isGrabbable, r) !== null);
+    }
+
     getContactFor(v: Vec2, hitbox: Rect, force: boolean, range: Rect): Vec2 {
 	let tilemap = this.scene.tilemap;
-	function f(c:number) {
-	    return (c == 1);
+	function isObstacle(c:number) {
+	    return (c == Tile.FLOOR);
 	}
+	function isStoppable(c:number) {
+	    return (c == Tile.FLOOR || c == Tile.LADDER);
+	}
+	let f = (force || this.isHolding())? isObstacle : isStoppable;
 	return tilemap.contactTile(hitbox, f, v, range);
     }
   
@@ -56,7 +74,7 @@ class Game extends GameScene {
     constructor(app: App) {
 	super(app);
 	this.sheet = new ImageSpriteSheet(app.images['sprites'], new Vec2(16,16));
-	this.tiles = new DummySpriteSheet(['black','gray','blue','red']);
+	this.tiles = new DummySpriteSheet(['black','gray','orange','red']);
     }
     
     init() {
@@ -73,12 +91,12 @@ class Game extends GameScene {
 	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,0],
 	    
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
+	    [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
+	    [0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
+	    [0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,2,0,0,0],
 	    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 	];
 	this.tilemap = new TileMap(16, map);
