@@ -313,7 +313,6 @@ class Color {
 //  ImageSource
 //
 class ImageSource {
-    _dummy() {} // to force generate a prototype.
     constructor() {
     }
 }

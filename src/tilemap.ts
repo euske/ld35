@@ -26,13 +26,18 @@ class TileMap {
     map: [[number]];
     width: number;
     height: number;
-    rangemap: RangeMapMap = {};
+    bounds: Rect;
+
+    private _rangemap: RangeMapMap = {};
 
     constructor(tilesize: number, map: [[number]]) {
 	this.tilesize = tilesize;
 	this.map = map;
 	this.width = map[0].length;
 	this.height = map.length;
+	this.bounds = new Rect(0, 0,
+			       this.width*this.tilesize,
+			       this.height*this.tilesize);
     }
 
     get(x: number, y: number) {
@@ -47,7 +52,7 @@ class TileMap {
 	if (0 <= x && 0 <= y && x < this.width && y < this.height) {
 	    this.map[y][x] = v;
 	}
-	this.rangemap = {};
+	this._rangemap = {};
     }
 
     copy() {
@@ -158,10 +163,10 @@ class TileMap {
     }
 
     getRangeMap(key:string, f: TileFunc) {
-	let map = this.rangemap[key];
+	let map = this._rangemap[key];
 	if (map === undefined) {
 	    map = new RangeMap(this, f);
-	    this.rangemap[key] = map;
+	    this._rangemap[key] = map;
 	}
 	return map;
     }

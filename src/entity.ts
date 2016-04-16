@@ -101,7 +101,7 @@ class Sprite extends Task {
 	return '<Sprite: '+this.bounds+'>';
     }
   
-    move(v: Vec2) {
+    movePos(v: Vec2) {
 	// [OVERRIDE]
 	this.bounds = this.bounds.add(v);
     }
@@ -171,8 +171,6 @@ class TiledSprite extends Sprite {
 class Entity extends Sprite {
 
     hitbox: Rect;
-    maxspeed: Vec2 = new Vec2(16,16);
-    movement: Vec2 = new Vec2();
 
     constructor(bounds: Rect, src: ImageSource=null, hitbox: Rect=null) {
 	super(bounds, src);
@@ -187,21 +185,24 @@ class Entity extends Sprite {
 	// [OVERRIDE]
     }
 
-    update() {
-	super.update();
-	this.move(this.getMove(this.movement, this.hitbox, true));
+    moveIfPossible(v: Vec2, force: boolean) {
+	this.movePos(this.getMove(v, this.hitbox, force));
     }
-  
-    move(v: Vec2) {
-	super.move(v);
+    
+    movePos(v: Vec2) {
+	super.movePos(v);
 	if (this.hitbox !== null) {
 	    this.hitbox = this.hitbox.add(v);
 	}
     }
   
     isMovable(v0: Vec2) {
-	let v1 = this.getMove(v0, this.hitbox, true);
-	return v1.equals(v0);
+	if (this.hitbox !== null) {
+	    let v1 = this.getMove(v0, this.hitbox, true);
+	    return v1.equals(v0);
+	} else {
+	    return true;
+	}
     }
 
     getMove(v: Vec2, hitbox: Rect, force: boolean) {
@@ -245,6 +246,7 @@ class Entity extends Sprite {
 class Projectile extends Entity {
     
     frame: Rect;
+    movement: Vec2 = new Vec2();
 
     constructor(frame: Rect, bounds: Rect,
 		src: ImageSource, hitbox: Rect,
@@ -256,6 +258,7 @@ class Projectile extends Entity {
 
     update() {
 	super.update();
+	this.moveIfPossible(this.movement, true);
 	if (!this.hitbox.overlap(this.frame)) {
 	    this.die();
 	}
@@ -271,9 +274,8 @@ interface JumpFunc {
 class PhysicalEntity extends Entity {
 
     velocity: Vec2 = new Vec2();
-    jumpfunc: JumpFunc = (
-	(vy:number, t:number) => { return (0 <= t && t <= 4)? -8 : vy+2; }
-    );
+    maxspeed: Vec2 = new Vec2(16,16);
+    jumpfunc: JumpFunc;
     
     protected _jumpt: number;
     protected _jumpend: number;
@@ -282,6 +284,9 @@ class PhysicalEntity extends Entity {
 	super(bounds, src, hitbox);
 	this._jumpt = Infinity;
 	this._jumpend = 0;
+	this.jumpfunc = (
+	    (vy:number, t:number) => { return (0 <= t && t <= 4)? -8 : vy+2; }
+	);
     }
 
     setJump(jumpend: number) {
@@ -307,7 +312,7 @@ class PhysicalEntity extends Entity {
 	if (!this.isHolding()) {
 	    this.velocity.y = this.jumpfunc(this.velocity.y, this._jumpt);
 	    this.velocity = this.getMove(this.velocity, this.hitbox, false);
-	    this.move(this.velocity);
+	    this.movePos(this.velocity);
 	}
     }
 

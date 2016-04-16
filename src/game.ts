@@ -9,6 +9,7 @@
 //   requires: app.ts
 
 enum Tile {
+    NONE = 0,
     FLOOR = 1,
     LADDER = 2,
 }
@@ -23,7 +24,8 @@ function isGrabbable(c:number) {
 }
 
 
-// ChatBox
+//  ChatBox
+// 
 class ChatBox extends DialogBox {
     
     screen: Rect;
@@ -58,39 +60,38 @@ class ChatBox extends DialogBox {
 }
 
 
-//  Player
+//  Item
 //
-class Player extends PhysicalEntity {
+class Item extends Entity {
+
+}
+
+
+//  Bullet
+//
+class Bullet extends Projectile {
+    constructor(frame: Rect, p: Vec2, v: Vec2) {
+	let bounds = p.expand(4, 2);
+	super(frame,
+	      bounds, new DummyImageSource('white'),
+	      bounds, v.scale(8));
+    }
+}
+
+
+//  Actor
+//
+class Actor extends PhysicalEntity {
 
     scene: Game;
-    usermove: Vec2;
+    direction: Vec2;
+    shape: number;
 
-    constructor(scene: Game, pos: Vec2) {
-	let bounds = pos.expand(16, 16);
-	super(bounds, new DummyImageSource('white'), bounds);
+    constructor(scene: Game, bounds: Rect, shape: number=0) {
+	super(bounds, null, bounds.inflate(-1, -1));
 	this.scene = scene;
-	this.usermove = new Vec2();
-    }
-
-    setMove(v: Vec2) {
-	this.usermove = v.scale(4);
-    }
-    
-    update() {
-	if (this.usermove.y != 0 &&
-	    this.getMove(this.usermove, this.hitbox, true).y == 0) {
-	    let tilemap = this.scene.tilemap;
-	    let vy = this.hitbox.height * sign(this.usermove.y);
-	    if (tilemap.findTile(isGrabbable, this.hitbox.move(16, vy)) !== null) {
-		this.movement = new Vec2(4, 0);
-	    } else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, vy)) !== null) {
-		this.movement = new Vec2(-4, 0);
-	    }
-	} else {
-	    this.movement = this.usermove;
-	}
-
-	super.update();
+	this.direction = new Vec2(1,0);
+	this.setShape(shape);
     }
 
     isHolding() {
@@ -107,6 +108,94 @@ class Player extends PhysicalEntity {
     getConstraintsFor(hitbox: Rect, force: boolean) {
 	return this.scene.screen;
     }
+
+    setShape(shape: number) {
+	if (this.shape != shape) {
+	    this.shape = shape;
+	    this.src = this.scene.sheet.get(1+shape);
+	}
+    }
+    
+    fire() {
+	let obj = new Bullet(
+	    this.scene.layer.window,
+	    this.bounds.center(), this.direction);
+	this.scene.addObject(obj);
+    }
+}
+
+
+//  Player
+//
+class Player extends Actor {
+
+    usermove: Vec2;
+
+    private _collide0: Entity;
+    private _collide1: Entity;
+
+    constructor(scene: Game, pos: Vec2) {
+	let bounds = pos.expand(16, 16);
+	super(scene, bounds, 3);
+	this.usermove = new Vec2();
+	this._collide0 = null;
+	this._collide1 = null;
+    }
+
+    setMove(v: Vec2) {
+	this.usermove = v.scale(4);
+	if (v.x != 0) {
+	    this.direction.x = sign(v.x);
+	}
+    }
+
+    collide(entity: Entity) {
+	if (entity instanceof Item) {
+	    this._collide1 = entity;
+	}
+    }
+
+    change() {
+	this.setShape((this.shape+1) % 3);
+    }
+    
+    update() {
+	super.update();
+	let movement = this.usermove;
+	if (this.usermove.y != 0 &&
+	    this.getMove(this.usermove, this.hitbox, true).y == 0) {
+	    let tilemap = this.scene.tilemap;
+	    let vy = this.hitbox.height * sign(this.usermove.y);
+	    if (tilemap.findTile(isGrabbable, this.hitbox.move(16, vy)) !== null) {
+		movement = new Vec2(4, 0);
+	    } else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, vy)) !== null) {
+		movement = new Vec2(-4, 0);
+	    }
+	}
+	this.moveIfPossible(movement, true);
+	if (this._collide1 !== null &&
+	    this._collide0 === null) {
+	    this.change();
+	}
+	this._collide0 = this._collide1;
+	this._collide1 = null;
+    }
+}
+
+
+//  Countryman
+//
+class Countryman extends Actor {
+    constructor(scene: Game, bounds: Rect, shape: number) {
+	super(scene, bounds, shape);
+    }
+
+    update() {
+	super.update();
+	let v = new Vec2(rnd(3)-1, rnd(3)-1);
+	this.moveIfPossible(v, true);
+    }
+	
 }
 
 
@@ -124,7 +213,7 @@ class Game extends GameScene {
     constructor(app: App) {
 	super(app);
 	this.sheet = new ImageSpriteSheet(app.images['sprites'], new Vec2(16,16));
-	this.tiles = new DummySpriteSheet(['black','gray','orange','red']);
+	this.tiles = new DummySpriteSheet(['black','gray','orange','white']);
     }
     
     init() {
@@ -145,11 +234,31 @@ class Game extends GameScene {
 	    
 	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
 	    [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
-	    [0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
-	    [0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,2,0,0,0],
+	    [0,0,0,1,0,1,10,0,0,0,0,0,0,0,0,0,2,0,0,0],
+	    [0,0,1,0,0,0,1,0,0,0,0,0,0,20,0,0,2,0,0,0],
 	    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 	];
 	this.tilemap = new TileMap(16, map);
+	this.tilemap.apply(
+	    (x: number, y: number, c: number) => {
+		switch (c) {
+		case 10:
+		    {
+			let bounds = this.tilemap.map2coord(new Vec2(x, y));
+			let obj = new Item(bounds, this.tiles.get(3), bounds);
+			this.addObject(obj);
+		    }
+		    break;
+		case 20:
+		    {
+			let bounds = this.tilemap.map2coord(new Vec2(x, y));
+			let obj = new Countryman(this, bounds, c-20);
+			this.addObject(obj);
+		    }
+		    break;
+		}
+		return false;
+	    });
 	
 	this.player = new Player(this, this.screen.center());
 	this.addObject(this.player);
@@ -168,6 +277,15 @@ class Game extends GameScene {
 	this.dialog.tick();
     }
 
+    keydown(keycode:number) {
+	let keysym = getKeySym(keycode);
+	switch (keysym) {
+	case 'cancel':
+	    this.player.fire();
+	    break;
+	}
+    }
+    
     set_dir(v: Vec2) {
 	super.set_dir(v);
 	this.player.setMove(this.app.key_dir);
@@ -181,10 +299,12 @@ class Game extends GameScene {
     render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
 	ctx.fillStyle = 'rgb(0,0,0)';
 	ctx.fillRect(bx, by, this.screen.width, this.screen.height);
+	function ft(x: number, y: number, c: number) {
+	    return (c < 10)? c : Tile.NONE;
+	}
 	this.layer.renderTilesFromBottomLeft(
 	    ctx, bx, by,
-	    this.tilemap, this.tiles,
-	    (x:number,y:number,c:number) => { return this.tilemap.get(x,y); });
+	    this.tilemap, this.tiles, ft);
 	super.render(ctx, bx, by);
 	this.dialog.render(ctx, bx, by);
     }
