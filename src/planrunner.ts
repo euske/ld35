@@ -169,13 +169,11 @@ class PlanActionRunner {
 
 //  PlanningEntity
 //
-class PlanningEntity extends PhysicalEntity implements PlanActor {
+class PlanningEntity extends PlatformerEntity implements PlanActor {
 
-    tilemap: TileMap;
     tilebounds: Rect;
     speed: number;
     timeout: number;
-    target: Entity;
     runner: PlanActionRunner;
     plan: PlanMap;
     obstacle: RangeMap;
@@ -185,39 +183,24 @@ class PlanningEntity extends PhysicalEntity implements PlanActor {
     fallpts: [Vec2];
     movement: Vec2;
 
-    static isObstacle: TileFunc;
-    static isGrabbable: TileFunc;
-    static isStoppable: TileFunc;
-
     constructor(tilemap: TileMap, bounds: Rect,
 		src: ImageSource=null, hitbox: Rect=null) {
-	super(bounds, src, hitbox);
-	this.tilemap = tilemap;
+	super(tilemap, bounds, src, hitbox);
 	this.tilebounds = new Rect(0, 0, 1, 1);
 	this.speed = 8;
 	this.timeout = 30;
-	this.target = null;
 	this.runner = null;
 	this.movement = new Vec2();
 
 	let gridsize = this.tilemap.tilesize/2;
 	this.plan = new PlanMap(this, gridsize, this.tilemap);
-	this.obstacle = this.tilemap.getRangeMap('obstacle', PlanningEntity.isObstacle);
-	this.grabbable = this.tilemap.getRangeMap('grabbable', PlanningEntity.isGrabbable);
-	this.stoppable = this.tilemap.getRangeMap('stoppable', PlanningEntity.isStoppable);
+	this.obstacle = this.tilemap.getRangeMap('obstacle', PlatformerEntity.isObstacle);
+	this.grabbable = this.tilemap.getRangeMap('grabbable', PlatformerEntity.isGrabbable);
+	this.stoppable = this.tilemap.getRangeMap('stoppable', PlatformerEntity.isStoppable);
 	this.jumppts = calcJumpRange(gridsize, this.speed, this.jumpfunc);
 	this.fallpts = calcFallRange(gridsize, this.speed, this.jumpfunc);
     }
 
-    isHolding() {
-	return (this.tilemap.findTile(PlanningEntity.isGrabbable, this.hitbox) !== null);
-    }
-
-    getContactFor(v: Vec2, hitbox: Rect, force: boolean, range: Rect): Vec2 {
-	let f = (force || this.isHolding())? isObstacle : isStoppable;
-	return this.tilemap.contactTile(hitbox, f, v, range);
-    }
-  
     startPlan(runner: PlanActionRunner) {
 	let actor = this;
 	let plan = this.plan;
@@ -236,32 +219,29 @@ class PlanningEntity extends PhysicalEntity implements PlanActor {
 	this.runner = null;
     }
 
-    move() {
-	let target = this.target;
-	if (target !== null) {
-	    let hitbox = target.hitbox;
-	    if (hitbox !== null) {
-		// make a plan.
-		let goal = this.plan.coord2grid(hitbox.center());
-		if (this.runner === null ||
-		    !this.runner.plan.goal.equals(goal)) {
-		    this.stopPlan();
-		    let maxcost = 20;
-		    let range = goal.expand(10, 10);
-		    let start = this.getGridPos();
-		    this.plan.initPlan(goal);
-		    if (this.plan.fillPlan(range, start, maxcost)) {
-			// start following a plan.
-			this.startPlan(new PlanActionRunner(this.plan, this));
-		    }
-		}
+    setApproach(p: Vec2) {
+	// make a plan.
+	let goal = this.plan.coord2grid(p);
+	if (this.runner === null ||
+	    !this.runner.plan.goal.equals(goal)) {
+	    this.stopPlan();
+	    let maxcost = 20;
+	    let range = goal.expand(10, 10);
+	    let start = this.getGridPos();
+	    this.plan.initPlan(goal);
+	    if (this.plan.fillPlan(range, start, maxcost)) {
+		// start following a plan.
+		this.startPlan(new PlanActionRunner(this.plan, this));
 	    }
-	    // follow a plan.
-	    if (this.runner !== null) {
-		// end following a plan.
-		if (!this.runner.update()) {
-		    this.stopPlan();
-		}
+	}
+    }
+
+    move() {
+	// follow a plan.
+	if (this.runner !== null) {
+	    // end following a plan.
+	    if (!this.runner.update()) {
+		this.stopPlan();
 	    }
 	}
 	this.moveIfPossible(this.movement, true);

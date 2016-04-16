@@ -330,3 +330,33 @@ class PhysicalEntity extends Entity {
     }
 
 }
+
+
+//  PlatformerEntity
+//
+class PlatformerEntity extends PhysicalEntity {
+    
+    tilemap: TileMap;
+    
+    static isObstacle: TileFunc;
+    static isGrabbable: TileFunc;
+    static isStoppable: TileFunc;
+
+    constructor(tilemap: TileMap, bounds: Rect,
+		src: ImageSource=null, hitbox: Rect=null) {
+	super(bounds, src, hitbox);
+	this.tilemap = tilemap;
+    }
+    
+    isHolding() {
+	return (this.tilemap.findTile(PlatformerEntity.isGrabbable, this.hitbox) !== null);
+    }
+
+    getContactFor(v: Vec2, hitbox: Rect, force: boolean, range: Rect): Vec2 {
+	let f = ((force || this.isHolding())?
+		 PlatformerEntity.isObstacle :
+		 PlatformerEntity.isStoppable);
+	return this.tilemap.contactTile(hitbox, f, v, range);
+    }
+  
+}

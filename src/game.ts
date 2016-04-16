@@ -22,6 +22,9 @@ function isStoppable(c:number) {
 function isGrabbable(c:number) {
     return (c == Tile.LADDER);
 }
+PlatformerEntity.isObstacle = isObstacle;
+PlatformerEntity.isGrabbable = isGrabbable;
+PlatformerEntity.isStoppable = isStoppable;
 
 
 //  ChatBox
@@ -85,51 +88,23 @@ class Bullet extends Projectile {
 
 //  Actor
 //
-class Actor extends PhysicalEntity {
+class Actor extends PlatformerEntity {
 
     scene: Game;
+    tilemap: TileMap;
     direction: Vec2;
     shape: number;
 
     constructor(scene: Game, bounds: Rect, shape: number=0) {
-	super(bounds, null, bounds.inflate(-1, -1));
+	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
 	this.scene = scene;
 	this.direction = new Vec2(1,0);
 	this.setShape(shape);
     }
 
-    isHolding() {
-	let tilemap = this.scene.tilemap;
-	return (tilemap.findTile(isGrabbable, this.hitbox) !== null);
-    }
-
-    getContactFor(v: Vec2, hitbox: Rect, force: boolean, range: Rect): Vec2 {
-	let tilemap = this.scene.tilemap;
-	let f = (force || this.isHolding())? isObstacle : isStoppable;
-	return tilemap.contactTile(hitbox, f, v, range);
-    }
-  
     getConstraintsFor(hitbox: Rect, force: boolean) {
 	return this.scene.screen;
     }
-
-    moveSmart(v: Vec2) {
-	v = v.copy();
-	if (v.y != 0) {
-	    if (v.y < 0 && !this.isHolding()) {
-		v.y = 0;
-	    } else if (this.getMove(v, this.hitbox, true).y == 0) {
-		let tilemap = this.scene.tilemap;
-		let dy = this.hitbox.height * sign(v.y);
-		if (tilemap.findTile(isGrabbable, this.hitbox.move(16, dy)) !== null) {
-		    v = new Vec2(4, 0);
-		} else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, dy)) !== null) {
-		    v = new Vec2(-4, 0);
-		}
-	    }
-	}
-	this.moveIfPossible(v, true);
-    }	
 
     setShape(shape: number) {
 	if (this.shape != shape) {
@@ -191,22 +166,47 @@ class Player extends Actor {
 	this._collide0 = this._collide1;
 	this._collide1 = null;
     }
+    
+    moveSmart(v: Vec2) {
+	v = v.copy();
+	if (v.y != 0) {
+	    if (v.y < 0 && !this.isHolding()) {
+		v.y = 0;
+	    } else if (this.getMove(v, this.hitbox, true).y == 0) {
+		let tilemap = this.scene.tilemap;
+		let dy = this.hitbox.height * sign(v.y);
+		if (tilemap.findTile(isGrabbable, this.hitbox.move(16, dy)) !== null) {
+		    v = new Vec2(4, 0);
+		} else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, dy)) !== null) {
+		    v = new Vec2(-4, 0);
+		}
+	    }
+	}
+	this.moveIfPossible(v, true);
+    }	
 }
 
 
 //  Countryman
 //
-class Countryman extends Actor {
+class Countryman extends PlanningEntity {
+    scene: Game;
+    
     constructor(scene: Game, bounds: Rect, shape: number) {
-	super(scene, bounds, shape);
+	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
+	this.scene = scene;
+	this.src = this.scene.sheet.get(1);
+    }
+
+    getConstraintsFor(hitbox: Rect, force: boolean) {
+	return this.scene.screen;
     }
 
     update() {
 	super.update();
-	let v = new Vec2(rnd(3)-1, rnd(3)-1);
-	this.moveIfPossible(v, true);
+	this.setApproach(this.scene.player.hitbox.center());
+	this.move();
     }
-	
 }
 
 
@@ -250,6 +250,9 @@ class Game extends GameScene {
 	    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 	];
 	this.tilemap = new TileMap(16, map);
+
+	this.player = new Player(this, this.screen.center());
+	this.addObject(this.player);
 	this.tilemap.apply(
 	    (x: number, y: number, c: number) => {
 		switch (c) {
@@ -271,9 +274,6 @@ class Game extends GameScene {
 		return false;
 	    });
 	
-	this.player = new Player(this, this.screen.center());
-	this.addObject(this.player);
-
 	this.dialog = new ChatBox(this.screen, this.app.font);
 	this.dialog.linespace = 2;
 	this.dialog.padding = 4;
