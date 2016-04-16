@@ -231,8 +231,7 @@ class App {
 	this.scene.init();
     }
 
-    set_music(music: HTMLAudioElement,
-	      start: number=0, end: number=0) {
+    set_music(music: HTMLAudioElement, start=0, end=0) {
 	if (this._music !== null) {
 	    this._music.pause();
 	}

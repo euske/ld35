@@ -69,7 +69,7 @@ class Layer {
 	}
 	if (obj instanceof Sprite) {
 	    this.sprites.push(obj);
-	    this.sprites.sort(function (a:Sprite, b:Sprite) { return a.zorder-b.zorder; });
+	    this.sprites.sort((a:Sprite, b:Sprite) => { return a.zorder-b.zorder; });
 	}
 	if (obj instanceof Entity) {
 	    this.entities.push(obj);
@@ -105,8 +105,7 @@ class Layer {
     }
     
     cleanObjects(objs: [Task]) {
-	function f(obj: Task) { return !obj.alive; }
-	removeElements(objs, f);
+	removeElements(objs, (obj: Task) => { return !obj.alive; });
     }
 
     findObjects(rect: Rect,

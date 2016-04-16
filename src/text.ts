@@ -27,7 +27,7 @@ class Font {
     protected _height0: number;
     private _glyphs: HTMLCanvasElement;
     
-    constructor(glyphs: HTMLImageElement, color: string=null, scale: number=1) {
+    constructor(glyphs: HTMLImageElement, color: string=null, scale=1) {
 	this._width0 = glyphs.height;
 	this._height0 = glyphs.height;
 	this.width = scale*this._width0;
@@ -66,8 +66,8 @@ class ShadowFont extends Font {
     shadowdist: number;
     private _glyphs2: HTMLCanvasElement;
     
-    constructor(glyphs: HTMLImageElement, color: string=null, scale: number=1,
-		shadowcolor: string='black', shadowdist: number=1) {
+    constructor(glyphs: HTMLImageElement, color: string=null, scale=1,
+		shadowcolor='black', shadowdist=1) {
 	super(glyphs, color, scale);
 	this._glyphs2 = MakeGlyphs(glyphs, shadowcolor);
 	this.shadowdist = shadowdist;
@@ -123,7 +123,7 @@ class TextBox extends Sprite {
     background: string = null;
     segments: [TextSegment] = [] as [TextSegment];
     
-    constructor(frame: Rect, font: Font, header: string='') {
+    constructor(frame: Rect, font: Font, header='') {
 	super(null);
 	this.frame = frame;
 	this.font = font;
@@ -271,8 +271,8 @@ class TextBox extends Sprite {
     }
 
     putText(lines: [string],
-	    halign: string='left',
-	    valign: string='top',
+	    halign='left',
+	    valign='top',
 	    font: Font=null) {
 	font = (font !== null)? font : this.font;
 	let y = this.frame.y;
@@ -500,7 +500,7 @@ class DialogBox extends TextBox {
     cursor: TextSegment = null;
     blinking: number = 0;
     
-    constructor(frame: Rect, font: Font, header: string='') {
+    constructor(frame: Rect, font: Font, header='') {
 	super(frame, font, header);
     }
 
@@ -595,7 +595,7 @@ class DialogBox extends TextBox {
 	return task;
     }
 
-    addDisplay(text: string, interval: number=-1,
+    addDisplay(text: string, interval=-1,
 	       sound: HTMLAudioElement=null, font: Font=null) {
 	let task = new DisplayTask(this, text);
 	task.interval = (0 <= interval)? interval : this.interval;

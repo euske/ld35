@@ -24,6 +24,7 @@ interface PlanActor {
     canFall(p0: Vec2, p1: Vec2): boolean;
     canJump(p0: Vec2, p1: Vec2): boolean;
     moveToward(p: Vec2): void;
+    jumpToward(p: Vec2): void;
 }
 
 
@@ -61,7 +62,7 @@ class PointSet {
 // calcJumpRange
 function calcJumpRange(
     gridsize:number, speed:number,
-    jumpfunc:JumpFunc, maxtime:number=15)
+    jumpfunc:JumpFunc, maxtime=15)
 {
     let pts = new PointSet();
     for (let jt = 1; jt < maxtime; jt++) {
@@ -89,7 +90,7 @@ function calcJumpRange(
 // calcFallRange
 function calcFallRange(
     gridsize:number, speed:number,
-    jumpfunc:JumpFunc, maxtime:number=15)
+    jumpfunc:JumpFunc, maxtime=15)
 {
     let p = new Vec2();
     let vy = 0;
@@ -120,7 +121,7 @@ enum ActionType {
     MOVETO,
 };
 
-function getKey(x:number, y:number, context:string=null)
+function getKey(x: number, y: number, context: string=null)
 {
     return (context === null)? (x+','+y) : (x+','+y+':'+context);
 }
@@ -138,7 +139,7 @@ class PlanAction {
 		context: string=null,
 		type: ActionType=ActionType.NONE,
 		next: PlanAction=null,
-		dc: number=0) {
+		dc=0) {
 	this.p = p;
 	this.context = context;
 	this.type = type;
@@ -193,16 +194,16 @@ class PlanMap {
 
     coord2grid(p: Vec2) {
 	let gs = this.gridsize;
-	return new Vec2(int(p.x/gs+.5),
-			int(p.y/gs+.5));
+	return new Vec2(int(p.x/gs),
+			int(p.y/gs));
     }
 
     grid2coord(p: Vec2) {
 	let gs = this.gridsize;
-	return new Vec2(p.x*gs, p.y*gs);
+	return new Vec2(int((p.x+.5)*gs), int((p.y+.5)*gs));
     }
 
-    getAction(x: number, y: number, context: string='') {
+    getAction(x: number, y: number, context: string=null) {
 	let k = getKey(x, y, context);
 	if (this._map.hasOwnProperty(k)) {
 	    return this._map[k];
@@ -279,7 +280,7 @@ class PlanMap {
 	this.addAction(null, new PlanAction(goal));
     }
 
-    fillPlan(range: Rect, start: Vec2=null, maxcost: number=20) {
+    fillPlan(range: Rect, start: Vec2=null, maxcost=20) {
 	this.start = start;
 	while (0 < this._queue.length) {
 	    let a0 = this._queue.shift().action;
@@ -292,13 +293,15 @@ class PlanMap {
 	    let dp = new Vec2(p.x, p.y-1);
 	    if (range.contains(dp) &&
 		this.actor.canClimbDown(dp)) {
-		this.addAction(start, new PlanAction(dp, null, ActionType.CLIMB, a0, 1));
+		this.addAction(start, new PlanAction(
+		    dp, null, ActionType.CLIMB, a0, 1));
 	    }
 	    // try climbing up.
 	    let up = new Vec2(p.x, p.y+1);
 	    if (range.contains(up) &&
 		this.actor.canClimbUp(up)) {
-		this.addAction(start, new PlanAction(up, null, ActionType.CLIMB, a0, 1));
+		this.addAction(start, new PlanAction(
+		    up, null, ActionType.CLIMB, a0, 1));
 	    }
 
 	    // for left and right.
@@ -310,7 +313,8 @@ class PlanMap {
 		    this.actor.canMoveTo(wp) &&
 		    (this.actor.canGrabAt(wp) ||
 		     this.actor.canStandAt(wp))) {
-		    this.addAction(start, new PlanAction(wp, null, ActionType.WALK, a0, 1));
+		    this.addAction(start, new PlanAction(
+			wp, null, ActionType.WALK, a0, 1));
 		}
 
 		// try falling.
@@ -333,7 +337,8 @@ class PlanMap {
 		    if (this.actor.canFall(fp, p) && 
 			this.actor.canStandAt(p)) {
 			let dc = Math.abs(v.x)+Math.abs(v.y);
-			this.addAction(start, new PlanAction(fp, null, ActionType.FALL, a0, dc));
+			this.addAction(start, new PlanAction(
+			    fp, null, ActionType.FALL, a0, dc));
 		    }
 		}
 
@@ -358,14 +363,16 @@ class PlanMap {
 			if (this.actor.canJump(jp, p) &&
 			    (this.actor.canGrabAt(jp) || this.actor.canStandAt(jp))) {
 			    let dc = Math.abs(v.x)+Math.abs(v.y);
-			    this.addAction(start, new PlanAction(jp, null, ActionType.JUMP, a0, dc));
+			    this.addAction(start, new PlanAction(
+				jp, null, ActionType.JUMP, a0, dc));
 			}
 		    }
 		}
 	    }
 	    
 	    // A* search.
-	    this._queue.sort(function (a,b) { return a.total-b.total; });
+	    this._queue.sort(
+		(a:PlanActionEntry,b:PlanActionEntry) => { return a.total-b.total; });
 	}
 	
 	return false;

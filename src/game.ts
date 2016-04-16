@@ -91,12 +91,12 @@ class Bullet extends Projectile {
 class Actor extends PlatformerEntity {
 
     scene: Game;
-    tilemap: TileMap;
     direction: Vec2;
     shape: number;
 
-    constructor(scene: Game, bounds: Rect, shape: number=0) {
+    constructor(scene: Game, bounds: Rect, shape=0) {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
+	this.zorder = 1;
 	this.scene = scene;
 	this.direction = new Vec2(1,0);
 	this.setShape(shape);
@@ -175,9 +175,11 @@ class Player extends Actor {
 	    } else if (this.getMove(v, this.hitbox, true).y == 0) {
 		let tilemap = this.scene.tilemap;
 		let dy = this.hitbox.height * sign(v.y);
-		if (tilemap.findTile(isGrabbable, this.hitbox.move(16, dy)) !== null) {
+		if (tilemap.findTile(isGrabbable,
+				     this.hitbox.move(16, dy)) !== null) {
 		    v = new Vec2(4, 0);
-		} else if (tilemap.findTile(isGrabbable, this.hitbox.move(-16, dy)) !== null) {
+		} else if (tilemap.findTile(isGrabbable,
+					    this.hitbox.move(-16, dy)) !== null) {
 		    v = new Vec2(-4, 0);
 		}
 	    }
@@ -190,12 +192,17 @@ class Player extends Actor {
 //  Countryman
 //
 class Countryman extends PlanningEntity {
+
     scene: Game;
+    shape: number;
     
     constructor(scene: Game, bounds: Rect, shape: number) {
-	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
+	let gridsize = scene.tilemap.tilesize;
+	super(scene.tilemap, gridsize, bounds, null, bounds.inflate(-1, -1));
+	this.zorder = 1;
 	this.scene = scene;
-	this.src = this.scene.sheet.get(1);
+	this.shape = shape;
+	this.src = this.scene.sheet.get(1+shape);
     }
 
     getConstraintsFor(hitbox: Rect, force: boolean) {
@@ -204,7 +211,9 @@ class Countryman extends PlanningEntity {
 
     update() {
 	super.update();
-	this.setApproach(this.scene.player.hitbox.center());
+	if (!this.isPlanRunning()) {
+	    this.makePlan(this.scene.player.hitbox.center());
+	}
 	this.move();
     }
 }
@@ -250,7 +259,8 @@ class Game extends GameScene {
 	    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 	];
 	this.tilemap = new TileMap(16, map);
-
+	PlanningEntity.initializeMap(this.tilemap);
+	
 	this.player = new Player(this, this.screen.center());
 	this.addObject(this.player);
 	this.tilemap.apply(

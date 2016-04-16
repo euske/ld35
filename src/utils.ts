@@ -281,7 +281,7 @@ class Color {
     b: number;
     a: number;
 
-    constructor(r: number, g: number, b: number, a: number=-1.0) {
+    constructor(r: number, g: number, b: number, a=-1.0) {
 	this.r = r;
 	this.g = g;
 	this.b = b;

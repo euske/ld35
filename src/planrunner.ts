@@ -26,19 +26,15 @@ class PlanActionRunner {
     action: PlanAction;
     timeout: number;
     count: number;
-    moveto: (p:Vec2) => void;
-    jumpto: (p:Vec2) => void;
     
-    constructor(plan: PlanMap, actor: PlanActor) {
+    constructor(plan: PlanMap, actor: PlanActor, timeout=Infinity) {
 	this.plan = plan;
 	this.actor = actor;
+	this.timeout = timeout;
 	let cur = actor.getGridPos();
 	this.action = plan.getAction(cur.x, cur.y);
 	
-	this.timeout = Infinity;
-	this.count = Infinity;
-	this.moveto = null;
-	this.jumpto = null;
+	this.count = this.timeout;
     }
 
     toString() {
@@ -63,9 +59,7 @@ class PlanActionRunner {
 
 	case ActionType.WALK:
 	case ActionType.CLIMB:
-	    if (this.moveto !== null) {
-		this.moveto(dst);
-	    }
+	    actor.moveToward(dst);
 	    if (cur.equals(dst)) {
 		this.action = this.action.next;
 		this.count = this.timeout;
@@ -78,9 +72,7 @@ class PlanActionRunner {
 		let r = actor.getHitboxAt(path[i]);
 		let v = r.diff(actor.getHitbox());
 		if (actor.isMovable(v)) {
-		    if (this.moveto !== null) {
-			this.moveto(path[i]);
-		    }
+		    actor.moveToward(path[i]);
 		    break;
 		}
 	    }
@@ -92,18 +84,14 @@ class PlanActionRunner {
 	    
 	case ActionType.JUMP:
 	    if (actor.isLanded() && !actor.isHolding() &&
-		this.actor.canJump(cur, dst)) {
-		if (this.jumpto !== null) {
-		    this.jumpto(dst);
-		}
+		actor.canJump(cur, dst)) {
+		actor.jumpToward(dst);
 		// once you leap, the action is considered finished.
 		this.action = this.action.next;
 		this.count = this.timeout;
 	    } else {
 		// not landed, holding something, or has no clearance.
-		if (this.moveto !== null) {
-		    this.moveto(cur);
-		}
+		actor.moveToward(cur);
 	    }
 	    break;
 	}
@@ -176,37 +164,45 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
     timeout: number;
     runner: PlanActionRunner;
     plan: PlanMap;
+    jumppts: [Vec2];
+    fallpts: [Vec2];
     obstacle: RangeMap;
     grabbable: RangeMap;
     stoppable: RangeMap;
-    jumppts: [Vec2];
-    fallpts: [Vec2];
     movement: Vec2;
 
-    constructor(tilemap: TileMap, bounds: Rect,
-		src: ImageSource=null, hitbox: Rect=null) {
+    static obstacleMap: RangeMap;
+    static grabbableMap: RangeMap;
+    static stoppableMap: RangeMap;
+    
+    static initializeMap(tilemap: TileMap) {
+	PlanningEntity.obstacleMap = tilemap.getRangeMap(
+	    'obstacle', PlatformerEntity.isObstacle);
+	PlanningEntity.grabbableMap = tilemap.getRangeMap(
+	    'grabbable', PlatformerEntity.isGrabbable);
+	PlanningEntity.stoppableMap = tilemap.getRangeMap(
+	    'stoppable', PlatformerEntity.isStoppable);
+    }
+
+    constructor(tilemap: TileMap, gridsize:number, bounds: Rect,
+		src: ImageSource=null, hitbox: Rect=null,
+		speed=4, timeout=30) {
 	super(tilemap, bounds, src, hitbox);
 	this.tilebounds = new Rect(0, 0, 1, 1);
-	this.speed = 8;
-	this.timeout = 30;
+	this.speed = speed;
+	this.timeout = timeout;
 	this.runner = null;
 	this.movement = new Vec2();
 
-	let gridsize = this.tilemap.tilesize/2;
 	this.plan = new PlanMap(this, gridsize, this.tilemap);
-	this.obstacle = this.tilemap.getRangeMap('obstacle', PlatformerEntity.isObstacle);
-	this.grabbable = this.tilemap.getRangeMap('grabbable', PlatformerEntity.isGrabbable);
-	this.stoppable = this.tilemap.getRangeMap('stoppable', PlatformerEntity.isStoppable);
 	this.jumppts = calcJumpRange(gridsize, this.speed, this.jumpfunc);
 	this.fallpts = calcFallRange(gridsize, this.speed, this.jumpfunc);
+	this.obstacle = PlanningEntity.obstacleMap;
+	this.grabbable = PlanningEntity.grabbableMap;
+	this.stoppable = PlanningEntity.stoppableMap;
     }
 
     startPlan(runner: PlanActionRunner) {
-	let actor = this;
-	let plan = this.plan;
-	runner.timeout = this.timeout;
-	runner.moveto = function (p) { actor.moveToward(p); }
-	runner.jumpto = function (p) { actor.setJump(Infinity); }
 	this.runner = runner;
 	log("begin:"+this.runner);
     }
@@ -219,19 +215,21 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	this.runner = null;
     }
 
-    setApproach(p: Vec2) {
-	// make a plan.
+    isPlanRunning() {
+	return (this.runner !== null);
+    }
+
+    makePlan(p: Vec2, size=10, maxcost=20) {
 	let goal = this.plan.coord2grid(p);
 	if (this.runner === null ||
 	    !this.runner.plan.goal.equals(goal)) {
 	    this.stopPlan();
-	    let maxcost = 20;
-	    let range = goal.expand(10, 10);
+	    let range = goal.expand(size, size);
 	    let start = this.getGridPos();
 	    this.plan.initPlan(goal);
 	    if (this.plan.fillPlan(range, start, maxcost)) {
 		// start following a plan.
-		this.startPlan(new PlanActionRunner(this.plan, this));
+		this.startPlan(new PlanActionRunner(this.plan, this, this.timeout));
 	    }
 	}
     }
@@ -247,22 +245,27 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	this.moveIfPossible(this.movement, true);
     }
 
-    getGridPos() {
-	let gs = this.plan.gridsize;
-	return new Vec2(int(this.hitbox.centerx()/gs),
-			int(this.hitbox.bottom()/gs-.5));
+    fall() {
+	if (!this.isHolding()) {
+	    this.velocity.y = this.jumpfunc(this.velocity.y, this._jumpt);
+	    this.velocity = this.getMove(this.velocity, this.hitbox, false);
+	    this.movePos(this.velocity);
+	}
     }
+
+    // PlanActor methods
+    
     getJumpPoints() {
 	return this.jumppts;
     }
     getFallPoints() {
 	return this.fallpts;
     }
+    getGridPos() {
+	return this.plan.coord2grid(this.hitbox.center());
+    }
     getHitboxAt(p: Vec2) {
-	let gs = this.plan.gridsize;
-	return new Rect(int(p.x*gs-this.hitbox.width/2),
-			int((p.y+1)*gs-this.hitbox.height),
-			this.hitbox.width, this.hitbox.height);
+	return this.plan.grid2coord(p).expand(this.hitbox.width, this.hitbox.height);
     }
     canMoveTo(p: Vec2) {
 	let hitbox = this.getHitboxAt(p);
@@ -327,7 +330,11 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	let r = this.getHitboxAt(p);
 	let v = r.diff(this.hitbox);
 	v.x = clamp(-this.speed, v.x, +this.speed);
+	v.y = clamp(-this.speed, v.y, +this.speed);
 	this.movement = v;
     }
-
+    
+    jumpToward(p: Vec2) {
+	this.setJump(Infinity);
+    }
 }
