@@ -10,10 +10,10 @@
 //   requires: levels.ts
 
 function isObstacle(c:number) {
-    return (c == Tile.FLOOR1 || c == Tile.FLOOR2);
+    return (c == Tile.FLOOR1 || c == Tile.FLOOR2 || c == Tile.DOOR);
 }
 function isStoppable(c:number) {
-    return (c == Tile.FLOOR1 || c == Tile.FLOOR2 || c == Tile.LADDER);
+    return (c == Tile.FLOOR1 || c == Tile.FLOOR2 || c == Tile.DOOR || c == Tile.LADDER);
 }
 function isGrabbable(c:number) {
     return (c == Tile.LADDER);
@@ -21,6 +21,7 @@ function isGrabbable(c:number) {
 PlatformerEntity.isObstacle = isObstacle;
 PlatformerEntity.isGrabbable = isGrabbable;
 PlatformerEntity.isStoppable = isStoppable;
+PlanningEntity.debug = true;
 
 
 //  ChatBox
@@ -67,7 +68,32 @@ class ChatBox extends DialogBox {
 //  Item
 //
 class Item extends Entity {
+    constructor(bounds: Rect, src: ImageSource) {
+	super(bounds.expand(4, 4, 1,-1), src, bounds);
+    }
+}
 
+
+//  Door
+//
+class Door extends Entity {
+    tilemap: TileMap;
+    pos: Vec2;
+    constructor(tilemap: TileMap, p: Vec2, bounds: Rect) {
+	super(bounds, null, bounds);
+	this.tilemap = tilemap;
+	this.pos = p;
+	tilemap.set(p.x, p.y, Tile.DOOR);
+    }
+}
+
+
+//  Exit
+//
+class Exit extends Entity {
+    constructor(bounds: Rect, src: ImageSource) {
+	super(bounds.expand(4, 4, 1,-1), src, bounds);
+    }
 }
 
 
@@ -211,8 +237,7 @@ class Fellow extends PlanningEntity implements Actor {
     private _prevfire: number;
     
     constructor(scene: Game, bounds: Rect, shape: number) {
-	let gridsize = scene.tilemap.tilesize;
-	super(scene.tilemap, gridsize, bounds, null, bounds.inflate(-1, -1));
+	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
 	this.zorder = 1;
 	this.scene = scene;
 	this.shape = shape;
@@ -248,9 +273,9 @@ class Fellow extends PlanningEntity implements Actor {
 		    this.stopPlan();
 		    let vx = sign(hitbox.x - this.hitbox.x);
 		    if (hitbox.xdistance(this.hitbox) < 64) {
-			this.movement = new Vec2(-this.speed*vx, 0);
+			this.movement = new Vec2(vx*4, 0);
 		    } else {
-			this.movement = new Vec2(this.speed*vx, 0);
+			this.movement = new Vec2(-vx*4, 0);
 		    }
 		    if (vx != 0) {
 			this.fire(vx);
@@ -325,24 +350,31 @@ class Game extends GameScene {
 
 	let level = LEVELS[this.curlevel];
 	this.tilemap = new TileMap(16, level.getArray());
-	PlanningEntity.initializeMap(this.tilemap);
+	PlanningEntity.initialize(this.tilemap.tilesize);
 	
 	this.player = null;
 	this.tilemap.apply(
 	    (x: number, y: number, c: number) => {
-		let bounds = this.tilemap.map2coord(new Vec2(x, y));
+		let p = new Vec2(x, y);
+		let bounds = this.tilemap.map2coord(p);
 		switch (c) {
 		case Tile.PLAYER:
 		    this.player = new Player(this, bounds);
 		    this.addObject(this.player);
 		    break;
-		case Tile.ITEM:
-		    this.addObject(new Item(bounds, this.tiles.get(4), bounds));
+		case Tile.ITEMENT:
+		    this.addObject(new Item(bounds, this.tiles.get(Tile.ITEM)));
+		    break;
+		case Tile.DOORENT:
+		    this.addObject(new Door(this.tilemap, p, bounds));
+		    break;
+		case Tile.EXITENT:
+		    this.addObject(new Exit(bounds, this.tiles.get(Tile.EXIT)));
 		    break;
 		case Tile.SHAPE1:
 		case Tile.SHAPE2:
 		case Tile.SHAPE3:
-		    this.addObject(new Fellow(this, bounds, c-20));
+		    this.addObject(new Fellow(this, bounds, c-Tile.SHAPE1));
 		    break;
 		}
 		return false;

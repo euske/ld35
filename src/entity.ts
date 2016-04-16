@@ -287,18 +287,18 @@ class PhysicalEntity extends Entity {
 
     velocity: Vec2 = new Vec2();
     maxspeed: Vec2 = new Vec2(16,16);
-    jumpfunc: JumpFunc;
     
     protected _jumpt: number;
     protected _jumpend: number;
 
+    static jumpfunc: JumpFunc = (
+	(vy:number, t:number) => { return (0 <= t && t <= 4)? -8 : vy+2; }
+    );
+    
     constructor(bounds: Rect, src: ImageSource=null, hitbox: Rect=null) {
 	super(bounds, src, hitbox);
 	this._jumpt = Infinity;
 	this._jumpend = 0;
-	this.jumpfunc = (
-	    (vy:number, t:number) => { return (0 <= t && t <= 4)? -8 : vy+2; }
-	);
     }
 
     setJump(jumpend: number) {
@@ -322,7 +322,7 @@ class PhysicalEntity extends Entity {
   
     fall() {
 	if (!this.isHolding()) {
-	    this.velocity.y = this.jumpfunc(this.velocity.y, this._jumpt);
+	    this.velocity.y = PhysicalEntity.jumpfunc(this.velocity.y, this._jumpt);
 	    this.velocity = this.getMove(this.velocity, this.hitbox, false);
 	    this.movePos(this.velocity);
 	}

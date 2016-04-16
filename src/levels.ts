@@ -2,12 +2,17 @@
 
 enum Tile {
     NONE = 0,
-    FLOOR1 = 1,
-    FLOOR2 = 2,
-    LADDER = 3,
+    FLOOR1 = 2,
+    FLOOR2 = 3,
+    LADDER = 4,
+    ITEM = 5,
+    DOOR = 6,
+    EXIT = 7,
     
     PLAYER = 10,
-    ITEM = 11,
+    ITEMENT = 11,
+    DOORENT = 12,
+    EXITENT = 13,
     
     SHAPE1 = 20,
     SHAPE2 = 21,
@@ -22,7 +27,9 @@ const TILEMAP = {
     'H': Tile.LADDER,
 
     'P': Tile.PLAYER,
-    'a': Tile.ITEM,
+    'a': Tile.ITEMENT,
+    'd': Tile.DOORENT,
+    'e': Tile.EXITENT,
 
     'A': Tile.SHAPE1,
     'B': Tile.SHAPE2,
@@ -71,10 +78,10 @@ const LEVELS = [
 	'.........................',
 	'.........................',
 	
-	'.........................',
-	'...............##H.......',
+	'...................e.....',
+	'...............##H##.....',
 	'....#............H.......',
-	'.A.###.....a...P.H.......',
+	'.A.###...d.a...P.H.......',
 	'#########################',
     ],
 	      'I HAVE NO MEMORY\nBLAH\nBLAH\nBLAH\nBLAH\n'

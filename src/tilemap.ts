@@ -51,8 +51,8 @@ class TileMap {
     set(x: number, y: number, v: number) {
 	if (0 <= x && 0 <= y && x < this.width && y < this.height) {
 	    this.map[y][x] = v;
+	    this._rangemap = {};
 	}
-	this._rangemap = {};
     }
 
     copy() {

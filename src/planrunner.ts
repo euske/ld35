@@ -159,47 +159,45 @@ class PlanActionRunner {
 //
 class PlanningEntity extends PlatformerEntity implements PlanActor {
 
-    tilebounds: Rect;
-    speed: number;
     timeout: number;
     runner: PlanActionRunner;
     plan: PlanMap;
-    jumppts: [Vec2];
-    fallpts: [Vec2];
     obstacle: RangeMap;
     grabbable: RangeMap;
     stoppable: RangeMap;
     movement: Vec2;
 
-    static obstacleMap: RangeMap;
-    static grabbableMap: RangeMap;
-    static stoppableMap: RangeMap;
-    
-    static initializeMap(tilemap: TileMap) {
-	PlanningEntity.obstacleMap = tilemap.getRangeMap(
-	    'obstacle', PlatformerEntity.isObstacle);
-	PlanningEntity.grabbableMap = tilemap.getRangeMap(
-	    'grabbable', PlatformerEntity.isGrabbable);
-	PlanningEntity.stoppableMap = tilemap.getRangeMap(
-	    'stoppable', PlatformerEntity.isStoppable);
-    }
+    static debug: boolean;
+    static gridsize: number;
+    static speed: number;
+    static jumppts: [Vec2];
+    static fallpts: [Vec2];
 
-    constructor(tilemap: TileMap, gridsize:number, bounds: Rect,
+    static initialize(gridsize:number, speed=4) {
+	PlanningEntity.gridsize = gridsize;
+	PlanningEntity.speed = speed;
+	PlanningEntity.jumppts = calcJumpRange(gridsize, speed, PhysicalEntity.jumpfunc);
+	PlanningEntity.fallpts = calcFallRange(gridsize, speed, PhysicalEntity.jumpfunc);
+    }
+    
+    constructor(tilemap: TileMap, bounds: Rect,
 		src: ImageSource=null, hitbox: Rect=null,
 		speed=4, timeout=30) {
 	super(tilemap, bounds, src, hitbox);
-	this.tilebounds = new Rect(0, 0, 1, 1);
-	this.speed = speed;
 	this.timeout = timeout;
 	this.runner = null;
 	this.movement = new Vec2();
 
-	this.plan = new PlanMap(this, gridsize, this.tilemap);
-	this.jumppts = calcJumpRange(gridsize, this.speed, this.jumpfunc);
-	this.fallpts = calcFallRange(gridsize, this.speed, this.jumpfunc);
-	this.obstacle = PlanningEntity.obstacleMap;
-	this.grabbable = PlanningEntity.grabbableMap;
-	this.stoppable = PlanningEntity.stoppableMap;
+	this.plan = new PlanMap(this, PlanningEntity.gridsize, this.tilemap);
+    }
+
+    updateRangeMaps() {
+	this.obstacle = this.tilemap.getRangeMap(
+	    'obstacle', PlatformerEntity.isObstacle);
+	this.grabbable = this.tilemap.getRangeMap(
+	    'grabbable', PlatformerEntity.isGrabbable);
+	this.stoppable = this.tilemap.getRangeMap(
+	    'stoppable', PlatformerEntity.isStoppable);
     }
 
     startPlan(runner: PlanActionRunner) {
@@ -226,6 +224,7 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	    this.stopPlan();
 	    let range = goal.expand(size, size);
 	    let start = this.getGridPos();
+	    this.updateRangeMaps();
 	    this.plan.initPlan(goal);
 	    if (this.plan.fillPlan(range, start, maxcost)) {
 		// start following a plan.
@@ -248,19 +247,26 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 
     fall() {
 	if (!this.isHolding()) {
-	    this.velocity.y = this.jumpfunc(this.velocity.y, this._jumpt);
+	    this.velocity.y = PhysicalEntity.jumpfunc(this.velocity.y, this._jumpt);
 	    this.velocity = this.getMove(this.velocity, this.hitbox, false);
 	    this.movePos(this.velocity);
 	}
     }
 
+    render(ctx:CanvasRenderingContext2D, bx:number, by:number) {
+	super.render(ctx, bx, by);
+	if (PlanningEntity.debug && this.runner !== null) {
+	    this.plan.render(ctx, bx, by);
+	}
+    }
+    
     // PlanActor methods
     
     getJumpPoints() {
-	return this.jumppts;
+	return PlanningEntity.jumppts;
     }
     getFallPoints() {
-	return this.fallpts;
+	return PlanningEntity.fallpts;
     }
     getGridPos() {
 	return this.plan.coord2grid(this.hitbox.center());
@@ -330,8 +336,8 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
     moveToward(p: Vec2) {
 	let r = this.getHitboxAt(p);
 	let v = r.diff(this.hitbox);
-	v.x = clamp(-this.speed, v.x, +this.speed);
-	v.y = clamp(-this.speed, v.y, +this.speed);
+	v.x = clamp(-PlanningEntity.speed, v.x, +PlanningEntity.speed);
+	v.y = clamp(-PlanningEntity.speed, v.y, +PlanningEntity.speed);
 	this.movement = v;
     }
     
