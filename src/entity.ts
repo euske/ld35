@@ -185,6 +185,10 @@ class Entity extends Sprite {
 	// [OVERRIDE]
     }
 
+    observe(entity: Entity) {
+	// [OVERRIDE]
+    }
+
     moveIfPossible(v: Vec2, force: boolean) {
 	this.movePos(this.getMove(v, this.hitbox, force));
     }
@@ -196,6 +200,10 @@ class Entity extends Sprite {
 	}
     }
 
+    getVisBox() {
+	return this.bounds.inflate(32, 32);
+    }
+    
     getHitbox() {
 	return this.hitbox;
     }

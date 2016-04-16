@@ -232,6 +232,7 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 		this.startPlan(new PlanActionRunner(this.plan, this, this.timeout));
 	    }
 	}
+	return this.isPlanRunning();
     }
 
     move() {

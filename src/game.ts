@@ -84,23 +84,41 @@ class Bullet extends Projectile {
 
 
 //  Actor
+// 
+interface Actor {
+    getShape(): number;
+}
+
+
+//  Player
 //
-class Actor extends PlatformerEntity {
+class Player extends PlatformerEntity implements Actor {
 
     scene: Game;
     direction: Vec2;
     shape: number;
+    usermove: Vec2;
 
-    constructor(scene: Game, bounds: Rect, shape=0) {
+    private _collide0: Entity;
+    private _collide1: Entity;
+
+    constructor(scene: Game, bounds: Rect) {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
 	this.zorder = 1;
 	this.scene = scene;
+	this.usermove = new Vec2();
 	this.direction = new Vec2(1,0);
-	this.setShape(shape);
+	this.setShape(3);
+	this._collide0 = null;
+	this._collide1 = null;
     }
 
     getConstraintsFor(hitbox: Rect, force: boolean) {
 	return this.scene.screen;
+    }
+
+    getShape() {
+	return this.shape;
     }
 
     setShape(shape: number) {
@@ -110,31 +128,6 @@ class Actor extends PlatformerEntity {
 	}
     }
     
-    fire() {
-	let obj = new Bullet(
-	    this.scene.layer.window,
-	    this.bounds.center(), this.direction);
-	this.scene.addObject(obj);
-    }
-}
-
-
-//  Player
-//
-class Player extends Actor {
-
-    usermove: Vec2;
-
-    private _collide0: Entity;
-    private _collide1: Entity;
-
-    constructor(scene: Game, bounds: Rect) {
-	super(scene, bounds, 3);
-	this.usermove = new Vec2();
-	this._collide0 = null;
-	this._collide1 = null;
-    }
-
     setMove(v: Vec2) {
 	this.usermove = v.scale(4);
 	if (v.x != 0) {
@@ -150,6 +143,13 @@ class Player extends Actor {
 
     change() {
 	this.setShape((this.shape+1) % 3);
+    }
+    
+    fire() {
+	let obj = new Bullet(
+	    this.scene.layer.window,
+	    this.bounds.center(), this.direction);
+	this.scene.addObject(obj);
     }
     
     update() {
@@ -185,12 +185,16 @@ class Player extends Actor {
 }
 
 
-//  Countryman
+//  Fellow
 //
-class Countryman extends PlanningEntity {
+class Fellow extends PlanningEntity implements Actor {
 
     scene: Game;
     shape: number;
+    mode: number;
+    target: Entity;
+
+    private _prevfire: number;
     
     constructor(scene: Game, bounds: Rect, shape: number) {
 	let gridsize = scene.tilemap.tilesize;
@@ -199,18 +203,86 @@ class Countryman extends PlanningEntity {
 	this.scene = scene;
 	this.shape = shape;
 	this.src = this.scene.sheet.get(1+shape);
+	this.mode = 0;
+	this.target = null;
+	this._prevfire = 0;
     }
 
     getConstraintsFor(hitbox: Rect, force: boolean) {
 	return this.scene.screen;
     }
 
+    getShape() {
+	return this.shape;
+    }
+    
     update() {
 	super.update();
-	if (!this.isPlanRunning()) {
-	    this.makePlan(this.scene.player.hitbox.center());
+	if (this.target instanceof Fellow ||
+	    this.target instanceof Player) {
+	    let shape = (this.target as Player).getShape();
+	    if (!this.target.alive || this.shape == shape) {
+		this.target = null;
+		this.mode = 0;
+	    }
+	}
+	switch (this.mode) {
+	case 1:
+	    if (this.target !== null) {
+		let hitbox = this.target.hitbox;
+		if (hitbox.ydistance(this.hitbox) < 0) {
+		    this.stopPlan();
+		    let vx = sign(hitbox.x - this.hitbox.x);
+		    if (hitbox.xdistance(this.hitbox) < 64) {
+			this.movement = new Vec2(-this.speed*vx, 0);
+		    } else {
+			this.movement = new Vec2(this.speed*vx, 0);
+		    }
+		    if (vx != 0) {
+			this.fire(vx);
+		    }
+		} else {
+		    if (!this.isPlanRunning()) {
+			this.makePlan(hitbox.center());
+		    }
+		}
+	    }
+	    break;
 	}
 	this.move();
+    }
+
+    fire(vx: number) {
+	if (this.ticks-this._prevfire < 30) return;
+	let obj = new Bullet(
+	    this.scene.layer.window,
+	    this.bounds.center(), new Vec2(vx, 0));
+	this._prevfire = this.ticks;
+	this.scene.addObject(obj);
+    }
+    
+    observe(entity: Entity) {
+	let shape: number;
+	if (entity instanceof Fellow ||
+	    entity instanceof Player) {
+	    shape = (entity as Actor).getShape();
+	} else {
+	    return;
+	}
+	switch (this.mode) {
+	case 0:
+	    if (shape == this.shape) {
+		if (!this.isPlanRunning()) {
+		    this.makePlan(entity.hitbox.center());
+		}
+	    } else {
+		// lock on.
+		this.mode = 1;
+		this.target = entity;
+		log("lock on", this.target);
+	    }
+	    break;
+	}
     }
 }
 
@@ -256,7 +328,7 @@ class Game extends GameScene {
 		case Tile.SHAPE1:
 		case Tile.SHAPE2:
 		case Tile.SHAPE3:
-		    this.addObject(new Countryman(this, bounds, c-20));
+		    this.addObject(new Fellow(this, bounds, c-20));
 		    break;
 		}
 		return false;
@@ -273,6 +345,7 @@ class Game extends GameScene {
 
     tick() {
 	super.tick();
+	this.scanObjects();
 	this.layer.setCenter(this.tilemap.world, this.player.bounds.inflate(64,64));
 	this.dialog.adjustPosition(this.player.bounds);
 	this.dialog.tick();
@@ -311,4 +384,23 @@ class Game extends GameScene {
 	    this.dialog.render(ctx, bx, by);
 	}
     }
+
+    scanObjects() {
+	let objs = this.layer.entities;
+	for (let i = 0; i < objs.length; i++) {
+	    let obj0 = objs[i];
+	    if (obj0.alive && obj0.hitbox !== null) {
+		let visbox0 = obj0.getVisBox();
+		for (let j = i+1; j < objs.length; j++) {
+		    let obj1 = objs[j];
+		    if (obj1 !== obj0 && obj1.alive && obj1.hitbox !== null &&
+			obj1.getVisBox().overlap(visbox0)) {
+			obj0.observe(obj1);
+			obj1.observe(obj0);
+		    }
+		}
+	    }
+	}
+    }
+    
 }
