@@ -195,6 +195,10 @@ class Entity extends Sprite {
 	    this.hitbox = this.hitbox.add(v);
 	}
     }
+
+    getHitbox() {
+	return this.hitbox;
+    }
   
     isMovable(v0: Vec2) {
 	if (this.hitbox !== null) {
