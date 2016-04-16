@@ -7,12 +7,8 @@
 //   requires: layer.ts
 //   requires: scene.ts
 //   requires: app.ts
+//   requires: levels.ts
 
-enum Tile {
-    NONE = 0,
-    FLOOR = 1,
-    LADDER = 2,
-}
 function isObstacle(c:number) {
     return (c == Tile.FLOOR);
 }
@@ -42,6 +38,7 @@ class ChatBox extends DialogBox {
 	this.bounds2 = screen.anchor(0,-1).expand(screen.width, 56, 0,-1);
 	this.bounds = this.bounds1;
 	this.border = 'white';
+	this.autohide = true;
     }
     
     adjustPosition(rect: Rect) {
@@ -131,8 +128,7 @@ class Player extends Actor {
     private _collide0: Entity;
     private _collide1: Entity;
 
-    constructor(scene: Game, pos: Vec2) {
-	let bounds = pos.expand(16, 16);
+    constructor(scene: Game, bounds: Rect) {
 	super(scene, bounds, 3);
 	this.usermove = new Vec2();
 	this._collide0 = null;
@@ -225,6 +221,7 @@ class Game extends GameScene {
 
     sheet: SpriteSheet;
     tiles: SpriteSheet;
+    curlevel: number;
     
     dialog: ChatBox;
     tilemap: TileMap;
@@ -234,51 +231,32 @@ class Game extends GameScene {
 	super(app);
 	this.sheet = new ImageSpriteSheet(app.images['sprites'], new Vec2(16,16));
 	this.tiles = new DummySpriteSheet(['black','gray','orange','white']);
+	this.curlevel = 0;
     }
     
     init() {
 	super.init();
 
-	let map:[[number]] = [
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,0],
-	    
-	    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
-	    [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0],
-	    [0,0,0,1,0,1,10,0,0,0,0,0,0,0,0,0,2,0,0,0],
-	    [0,0,1,0,0,0,1,0,0,0,0,0,0,20,0,0,2,0,0,0],
-	    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-	];
-	this.tilemap = new TileMap(16, map);
+	let level = LEVELS[this.curlevel];
+	this.tilemap = new TileMap(16, level.getArray());
 	PlanningEntity.initializeMap(this.tilemap);
 	
-	this.player = new Player(this, this.screen.center());
-	this.addObject(this.player);
+	this.player = null;
 	this.tilemap.apply(
 	    (x: number, y: number, c: number) => {
+		let bounds = this.tilemap.map2coord(new Vec2(x, y));
 		switch (c) {
-		case 10:
-		    {
-			let bounds = this.tilemap.map2coord(new Vec2(x, y));
-			let obj = new Item(bounds, this.tiles.get(3), bounds);
-			this.addObject(obj);
-		    }
+		case Tile.PLAYER:
+		    this.player = new Player(this, bounds);
+		    this.addObject(this.player);
 		    break;
-		case 20:
-		    {
-			let bounds = this.tilemap.map2coord(new Vec2(x, y));
-			let obj = new Countryman(this, bounds, c-20);
-			this.addObject(obj);
-		    }
+		case Tile.ITEM:
+		    this.addObject(new Item(bounds, this.tiles.get(3), bounds));
+		    break;
+		case Tile.SHAPE1:
+		case Tile.SHAPE2:
+		case Tile.SHAPE3:
+		    this.addObject(new Countryman(this, bounds, c-20));
 		    break;
 		}
 		return false;
@@ -288,12 +266,14 @@ class Game extends GameScene {
 	this.dialog.linespace = 2;
 	this.dialog.padding = 4;
 	this.dialog.background = 'black';
-	this.dialog.addDisplay('I HAVE NO MEMORY.\nBLAH\nBLAH\nBHAL\nBLAE', 2);
+	this.dialog.addDisplay(level.text, 2);
+	this.dialog.addPause(30);
 	this.dialog.start(this.layer);
     }
 
     tick() {
 	super.tick();
+	this.layer.setCenter(this.tilemap.world, this.player.bounds.inflate(64,64));
 	this.dialog.adjustPosition(this.player.bounds);
 	this.dialog.tick();
     }
@@ -327,6 +307,8 @@ class Game extends GameScene {
 	    ctx, bx, by,
 	    this.tilemap, this.tiles, ft);
 	super.render(ctx, bx, by);
-	this.dialog.render(ctx, bx, by);
+	if (this.dialog.visible) {
+	    this.dialog.render(ctx, bx, by);
+	}
     }
 }

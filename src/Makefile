@@ -20,6 +20,7 @@ SRCS=$(SRCDIR)/utils.ts \
 	$(SRCDIR)/scene.ts \
 	$(SRCDIR)/app.ts \
 	$(SRCDIR)/main.ts \
+	$(SRCDIR)/levels.ts \
 	$(SRCDIR)/game.ts
 
 OUTDIR=../js

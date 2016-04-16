@@ -26,7 +26,7 @@ class TileMap {
     map: [[number]];
     width: number;
     height: number;
-    bounds: Rect;
+    world: Rect;
 
     private _rangemap: RangeMapMap = {};
 
@@ -35,9 +35,9 @@ class TileMap {
 	this.map = map;
 	this.width = map[0].length;
 	this.height = map.length;
-	this.bounds = new Rect(0, 0,
-			       this.width*this.tilesize,
-			       this.height*this.tilesize);
+	this.world = new Rect(0, 0,
+			      this.width*this.tilesize,
+			      this.height*this.tilesize);
     }
 
     get(x: number, y: number) {
