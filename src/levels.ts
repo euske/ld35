@@ -2,8 +2,9 @@
 
 enum Tile {
     NONE = 0,
-    FLOOR = 1,
-    LADDER = 2,
+    FLOOR1 = 1,
+    FLOOR2 = 2,
+    LADDER = 3,
     
     PLAYER = 10,
     ITEM = 11,
@@ -17,7 +18,7 @@ interface CharMap {
     [index: string]: number;
 }
 const TILEMAP = {
-    '#': Tile.FLOOR,
+    '#': Tile.FLOOR1,
     'H': Tile.LADDER,
 
     'P': Tile.PLAYER,

@@ -10,10 +10,10 @@
 //   requires: levels.ts
 
 function isObstacle(c:number) {
-    return (c == Tile.FLOOR);
+    return (c == Tile.FLOOR1 || c == Tile.FLOOR2);
 }
 function isStoppable(c:number) {
-    return (c == Tile.FLOOR || c == Tile.LADDER);
+    return (c == Tile.FLOOR1 || c == Tile.FLOOR2 || c == Tile.LADDER);
 }
 function isGrabbable(c:number) {
     return (c == Tile.LADDER);
@@ -73,12 +73,26 @@ class Item extends Entity {
 
 //  Bullet
 //
+const COLORS = ['red', 'blue', 'yellow', 'green'];
 class Bullet extends Projectile {
-    constructor(frame: Rect, p: Vec2, v: Vec2) {
+
+    shape: number;
+    tilemap: TileMap;
+    
+    constructor(shape: number, tilemap: TileMap, p: Vec2, v: Vec2) {
 	let bounds = p.expand(4, 2);
-	super(frame,
-	      bounds, new DummyImageSource('white'),
+	super(tilemap.world,
+	      bounds, new DummyImageSource(COLORS[shape]),
 	      bounds, v.scale(8));
+	this.shape = shape;
+	this.tilemap = tilemap;
+    }
+    
+    update() {
+	super.update();
+	if (this.tilemap.findTile(isObstacle, this.hitbox) !== null) {
+	    this.die();
+	}
     }
 }
 
@@ -114,7 +128,7 @@ class Player extends PlatformerEntity implements Actor {
     }
 
     getConstraintsFor(hitbox: Rect, force: boolean) {
-	return this.scene.screen;
+	return this.tilemap.world;
     }
 
     getShape() {
@@ -147,7 +161,7 @@ class Player extends PlatformerEntity implements Actor {
     
     fire() {
 	let obj = new Bullet(
-	    this.scene.layer.window,
+	    this.shape, this.tilemap,
 	    this.bounds.center(), this.direction);
 	this.scene.addObject(obj);
     }
@@ -209,7 +223,7 @@ class Fellow extends PlanningEntity implements Actor {
     }
 
     getConstraintsFor(hitbox: Rect, force: boolean) {
-	return this.scene.screen;
+	return this.tilemap.world;
     }
 
     getShape() {
@@ -255,7 +269,7 @@ class Fellow extends PlanningEntity implements Actor {
     fire(vx: number) {
 	if (this.ticks-this._prevfire < 30) return;
 	let obj = new Bullet(
-	    this.scene.layer.window,
+	    this.shape, this.tilemap,
 	    this.bounds.center(), new Vec2(vx, 0));
 	this._prevfire = this.ticks;
 	this.scene.addObject(obj);
@@ -302,7 +316,7 @@ class Game extends GameScene {
     constructor(app: App) {
 	super(app);
 	this.sheet = new ImageSpriteSheet(app.images['sprites'], new Vec2(16,16));
-	this.tiles = new DummySpriteSheet(['black','gray','orange','white']);
+	this.tiles = new ImageSpriteSheet(app.images['tiles'], new Vec2(20,20));
 	this.curlevel = 0;
     }
     
@@ -323,7 +337,7 @@ class Game extends GameScene {
 		    this.addObject(this.player);
 		    break;
 		case Tile.ITEM:
-		    this.addObject(new Item(bounds, this.tiles.get(3), bounds));
+		    this.addObject(new Item(bounds, this.tiles.get(4), bounds));
 		    break;
 		case Tile.SHAPE1:
 		case Tile.SHAPE2:
