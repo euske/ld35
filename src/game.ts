@@ -21,7 +21,7 @@ function isGrabbable(c:number) {
 PlatformerEntity.isObstacle = isObstacle;
 PlatformerEntity.isGrabbable = isGrabbable;
 PlatformerEntity.isStoppable = isStoppable;
-PlanningEntity.debug = true;
+PlanningEntity.debug = false;
 
 
 //  ChatBox
@@ -383,12 +383,17 @@ class Fellow extends PlanningEntity implements Actor {
     health: number;
     invuln: number;
     target: Entity;
+    boss: Entity;
     greeted: boolean;
-    
+
+    private _pushed: Vec2;
     private _prevfire: number;
     private _enemies: [Entity];
     static LINES: [string] = [
 	'YO.', 'HAI!', 'HIYA.', 'GOOD DAY.',
+    ];
+    static SURPRISES: [string] = [
+	'!', '!!!', '?', '!?',
     ];
     
     constructor(scene: Game, bounds: Rect, shape: number, health=3) {
@@ -402,7 +407,9 @@ class Fellow extends PlanningEntity implements Actor {
 	this.health = health;
 	this.invuln = 0;
 	this.target = null;
+	this.boss = null;
 	this.greeted = false;
+	this._pushed = new Vec2();
 	this._prevfire = 0;
 	this._enemies = [] as [Entity];
     }
@@ -434,6 +441,8 @@ class Fellow extends PlanningEntity implements Actor {
 	    }
 	} else if (entity instanceof Boss) {
 	    this.hurt();
+	} else if (entity instanceof Entity) {
+	    this._pushed = this.hitbox.diff(entity.hitbox);
 	}
     }
 
@@ -477,12 +486,12 @@ class Fellow extends PlanningEntity implements Actor {
 
 	if (this.scene.boss !== null) {
 	    // boss scene.
-	    if (this.target === null) {
-		this.target = this.scene.boss;
-		this.shout('!!!');
+	    if (this.boss === null) {
+		this.boss = this.scene.boss;
+		this.shout(choice(Fellow.SURPRISES));
 	    }
-	    let hitbox = this.target.hitbox;
-	    if (this.isPointBlank(hitbox)) {
+	    let hitbox = this.boss.hitbox;
+	    if (this.boss.alive && this.isPointBlank(hitbox)) {
 		let vx = sign(hitbox.x - this.hitbox.x);
 		if (hitbox.xdistance(this.hitbox) < 64) {
 		    this.movement = new Vec2(-vx*4, 0);
@@ -541,13 +550,18 @@ class Fellow extends PlanningEntity implements Actor {
 		    if (runner !== null) {
 			this.startPlan(runner);
 			this.target = target;
-			this.shout('!');
+			this.shout(choice(Fellow.SURPRISES));
 		    }
 		}
 	    }
 	}
 	
 	this.move();
+	if (this._pushed != null) {
+	    this.moveIfPossible(this._pushed.clamp(new Vec2(1,1)), true);
+	    this._pushed = null;
+	}
+	
 	this._enemies = [] as [Entity];
     }
 
@@ -589,8 +603,8 @@ class Fellow extends PlanningEntity implements Actor {
     }
 
     isPointBlank(hitbox: Rect) {
-	if (hitbox.ydistance(this.hitbox) < 0) {
-	    let range = hitbox.union(this.hitbox);
+	if (hitbox.ydistance(this.bounds) < 0) {
+	    let range = hitbox.union(this.bounds);
 	    return (this.tilemap.findTile(isStoppable, range) === null);
 	}
 	return false;
@@ -635,10 +649,12 @@ class Boss extends PlatformerEntity {
 	if (this.ticks < this.invuln) return;
 	this.health--;
 	this.invuln = this.ticks+15;
-	playSound(this.scene.app.audios['moan']);
 	if (this.health === 0) {
+	    playSound(this.scene.app.audios['explosion']);
 	    this.die();
 	    this.scene.bossDied();
+	} else {
+	    playSound(this.scene.app.audios['moan']);
 	}
     }
 
@@ -689,7 +705,7 @@ class Game extends GameScene {
 	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
 	this.healthStatus.zorder = 9;
 	
-	this.curlevel = 5;
+	this.curlevel = 0;
     }
     
     init() {
@@ -831,6 +847,12 @@ class Game extends GameScene {
     }
 
     bossDied() {
+	this.special = 2;
+	let bounds = this.tilemap.map2coord(new Vec2(10, 9));
+	this.addObject(new Exit(bounds, this.tiles.get(Tile.EXIT)));
+	this.dialog.clear();
+	this.dialog.addDisplay('DID WE... WIN?', 4);
+	this.dialog.addPause(30);
     }
 
     updateHealth() {
