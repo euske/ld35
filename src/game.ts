@@ -278,6 +278,7 @@ class Player extends PlatformerEntity implements Actor {
 	} else if (entity instanceof Bullet) {
 	    if (this.shape != (entity as Bullet).shape) {
 		this.hurt();
+		entity.die();
 	    }
 	}
     }
@@ -409,19 +410,26 @@ class Fellow extends PlanningEntity implements Actor {
 	    return;
 	}
 
-	if (this.target === null) {
-	    if (shape == this.shape) {
-		if (entity instanceof Player && !this.greeted) {
+	if (shape == this.shape) {
+	    if (this.target === null) {
+		if (entity instanceof Player &&
+		    (!this.greeted || this.scene.following)) {
 		    if (!this.isPlanRunning()) {
-			if (this.makePlan(entity.hitbox.center())) {
-			    this.shout(choice(Fellow.LINES));
-			    this.greeted = true;
+			let runner = this.getPlan(entity.hitbox.center());
+			if (runner !== null) {
+			    this.startPlan(runner);
+			    if (!this.greeted) {
+				this.greeted = true;
+				this.shout(choice(Fellow.LINES));
+			    }
+			} else {
+			    this.movement = new Vec2((rnd(3)-1)*4, 0);
 			}
 		    }
 		}
-	    } else {
-		this._enemies.push(entity);
 	    }
+	} else {
+	    this._enemies.push(entity);
 	}
     }
     
@@ -429,6 +437,7 @@ class Fellow extends PlanningEntity implements Actor {
 	if (entity instanceof Bullet) {
 	    if (this.shape != (entity as Bullet).shape) {
 		this.hurt();
+		entity.die();
 	    }
 	}
     }
@@ -458,7 +467,10 @@ class Fellow extends PlanningEntity implements Actor {
 		}
 	    } else {
 		if (!this.isPlanRunning()) {
-		    if (!this.makePlan(hitbox.center())) {
+		    let runner = this.getPlan(hitbox.center());
+		    if (runner !== null) {
+			this.startPlan(runner);
+		    } else {
 			// give up.
 			this.target = null;
 		    }
@@ -467,11 +479,11 @@ class Fellow extends PlanningEntity implements Actor {
 	} else {
 	    if (0 < this._enemies.length) {
 		let target = choice(this._enemies);
-		if (!this.isPlanRunning()) {
-		    if (this.makePlan(target.hitbox.center())) {
-			this.target = target;
-			this.shout('!');
-		    }
+		let runner = this.getPlan(target.hitbox.center());
+		if (runner !== null) {
+		    this.startPlan(runner);
+		    this.target = target;
+		    this.shout('!');
 		}
 	    }
 	}
@@ -548,6 +560,7 @@ class Game extends GameScene {
     dialog: ChatBox;
     tilemap: TileMap;
     player: Player;
+    following: boolean;
     healthStatus: TextBox;
 
     constructor(app: App) {
@@ -557,7 +570,7 @@ class Game extends GameScene {
 	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
 	this.healthStatus.zorder = 9;
 	
-	this.curlevel = 3;
+	this.curlevel = 4;
     }
     
     init() {
@@ -566,6 +579,7 @@ class Game extends GameScene {
 	let level = LEVELS[this.curlevel];
 	this.tilemap = new TileMap(16, level.getArray());
 	PlanningEntity.initialize(this.tilemap.tilesize);
+	this.following = level.following;
 	
 	this.player = null;
 	this.tilemap.apply(

@@ -169,7 +169,7 @@ class PlanActionRunner {
 		actor.canJump(cur, dst)) {
 		actor.jumpToward(dst);
 		// once you leap, the action is considered finished.
-		this.action = this.action.next;
+		this.action = new PlanAction(dst, null, ActionType.WALK, this.action.next);
 		this.count = this.timeout;
 	    } else {
 		// not landed, holding something, or has no clearance.
@@ -243,6 +243,7 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 
     timeout: number;
     runner: PlanActionRunner;
+    grid: PlanGrid;
     plan: PlanMap;
     gridbox: Rect;
     obstacle: RangeMap;
@@ -276,7 +277,8 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	this.gridbox = new Rect(0, 0,
 				Math.ceil(hitbox.width/gs)*gs,
 				Math.ceil(hitbox.height/gs)*gs);
-	this.plan = new PlanMap(this, gs, this.tilemap);
+	this.grid = new PlanGrid(gs);
+	this.plan = new PlanMap(this, this.grid, this.tilemap);
     }
 
     updateRangeMaps() {
@@ -286,6 +288,10 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	    'grabbable', PlatformerEntity.isGrabbable);
 	this.stoppable = this.tilemap.getRangeMap(
 	    'stoppable', PlatformerEntity.isStoppable);
+    }
+
+    isPlanRunning() {
+	return (this.runner !== null);
     }
 
     startPlan(runner: PlanActionRunner) {
@@ -301,25 +307,17 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	this.runner = null;
     }
 
-    isPlanRunning() {
-	return (this.runner !== null);
-    }
-
-    makePlan(p: Vec2, size=10, maxcost=20) {
-	let goal = this.plan.coord2grid(p);
-	if (this.runner === null ||
-	    !this.runner.plan.goal.equals(goal)) {
-	    this.stopPlan();
-	    let range = goal.expand(size, size);
-	    let start = this.getGridPos();
-	    this.updateRangeMaps();
-	    this.plan.initPlan(goal);
-	    if (this.plan.fillPlan(range, start, maxcost)) {
-		// start following a plan.
-		this.startPlan(new PlanActionRunner(this.plan, this, this.timeout));
-	    }
+    getPlan(p: Vec2, size=10, maxcost=20) {
+	let goal = this.grid.coord2grid(p);
+	let range = goal.expand(size, size);
+	let start = this.getGridPos();
+	this.updateRangeMaps();
+	let plan = new PlanMap(this, this.grid, this.tilemap);
+	plan.initPlan(goal);
+	if (plan.fillPlan(range, start, maxcost)) {
+	    return new PlanActionRunner(plan, this, this.timeout);
 	}
-	return this.isPlanRunning();
+	return null;
     }
 
     move() {
@@ -336,7 +334,7 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
     render(ctx:CanvasRenderingContext2D, bx:number, by:number) {
 	super.render(ctx, bx, by);
 	if (PlanningEntity.debug && this.runner !== null) {
-	    this.plan.render(ctx, bx, by);
+	    this.runner.plan.render(ctx, bx, by);
 	}
     }
     
@@ -349,13 +347,13 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	return PlanningEntity.fallpts;
     }
     getGridPos() {
-	return this.plan.coord2grid(this.hitbox.center());
+	return this.grid.coord2grid(this.hitbox.center());
     }
     getGridBox() {
 	return this.hitbox.center().expand(this.gridbox.width, this.gridbox.height);
     }
     getGridBoxAt(p: Vec2) {
-	return this.plan.grid2coord(p).expand(this.gridbox.width, this.gridbox.height);
+	return this.grid.grid2coord(p).expand(this.gridbox.width, this.gridbox.height);
     }
     canMoveTo(p: Vec2) {
 	let hitbox = this.getGridBoxAt(p);
@@ -366,7 +364,7 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	return this.grabbable.exists(this.tilemap.coord2map(hitbox));
     }
     canStandAt(p: Vec2) {
-	let hitbox = this.getGridBoxAt(p).move(0, this.plan.gridsize);
+	let hitbox = this.getGridBoxAt(p).move(0, this.grid.gridsize);
 	return this.stoppable.exists(this.tilemap.coord2map(hitbox));
     }
     canClimbUp(p: Vec2) {
@@ -432,5 +430,6 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
     
     jumpToward(p: Vec2) {
 	this.setJump(Infinity);
+	this.moveToward(p);
     }
 }
