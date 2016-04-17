@@ -59,6 +59,20 @@ class TileMap {
 	}
     }
 
+    fill(v: number, rect: Rect=null) {
+	if (rect === null) {
+	    rect = new Rect(0, 0, this.width, this.height);
+	}
+	for (let dy = 0; dy < rect.height; dy++) {
+	    const y = rect.y+dy;
+	    for (let dx = 0; dx < rect.width; dx++) {
+		const x = rect.x+dx;
+		this.map[y][x] = v;
+	    }
+	}
+	this._rangemap = {};
+    }
+
     copy() {
 	let map = [] as [[number]];
 	for (let i = 0; i < this.map.length; i++) {

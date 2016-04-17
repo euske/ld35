@@ -201,6 +201,29 @@ class Bullet extends Projectile {
 }
 
 
+//  BossBullet
+//
+class BossBullet extends Projectile {
+
+    tilemap: TileMap;
+    
+    constructor(tilemap: TileMap, p: Vec2, v: Vec2) {
+	let bounds = p.expand(4, 2);
+	super(tilemap.world,
+	      bounds, new DummyImageSource('white'),
+	      bounds.expand(4, 0), v.scale(8));
+	this.tilemap = tilemap;
+    }
+    
+    update() {
+	super.update();
+	if (this.tilemap.findTile(isObstacle, this.hitbox) !== null) {
+	    this.die();
+	}
+    }
+}
+
+
 //  Actor
 // 
 interface Actor {
@@ -280,6 +303,8 @@ class Player extends PlatformerEntity implements Actor {
 		this.hurt();
 		entity.die();
 	    }
+	} else if (entity instanceof Boss) {
+	    this.hurt();
 	}
     }
 
@@ -401,8 +426,21 @@ class Fellow extends PlanningEntity implements Actor {
 	return this.shape;
     }
     
+    collide(entity: Entity) {
+	if (entity instanceof Bullet) {
+	    if (this.shape != (entity as Bullet).shape) {
+		this.hurt();
+		entity.die();
+	    }
+	} else if (entity instanceof Boss) {
+	    this.hurt();
+	}
+    }
+
     observe(entity: Entity) {
-	let shape: number;
+	if (this.scene.special == 1) return;
+	
+	let shape = 0;
 	if (entity instanceof Fellow ||
 	    entity instanceof Player) {
 	    shape = (entity as Actor).getShape();
@@ -410,7 +448,7 @@ class Fellow extends PlanningEntity implements Actor {
 	    return;
 	}
 
-	if (shape == this.shape) {
+	if (this.scene.special == 2 || shape == this.shape) {
 	    if (this.target === null) {
 		if (entity instanceof Player &&
 		    (!this.greeted || this.scene.following)) {
@@ -433,29 +471,18 @@ class Fellow extends PlanningEntity implements Actor {
 	}
     }
     
-    collide(entity: Entity) {
-	if (entity instanceof Bullet) {
-	    if (this.shape != (entity as Bullet).shape) {
-		this.hurt();
-		entity.die();
-	    }
-	}
-    }
-
     update() {
 	super.update();
 	this.visible = (this.invuln < this.ticks || blink(this.ticks, 10));
-	if (this.target instanceof Fellow ||
-	    this.target instanceof Player) {
-	    let shape = (this.target as Player).getShape();
-	    if (!this.target.alive || this.shape == shape) {
-		this.target = null;
+
+	if (this.scene.boss !== null) {
+	    // boss scene.
+	    if (this.target === null) {
+		this.target = this.scene.boss;
+		this.shout('!!!');
 	    }
-	}
-	if (this.target !== null) {
 	    let hitbox = this.target.hitbox;
 	    if (this.isPointBlank(hitbox)) {
-		this.stopPlan();
 		let vx = sign(hitbox.x - this.hitbox.x);
 		if (hitbox.xdistance(this.hitbox) < 64) {
 		    this.movement = new Vec2(-vx*4, 0);
@@ -467,35 +494,75 @@ class Fellow extends PlanningEntity implements Actor {
 		}
 	    } else {
 		if (!this.isPlanRunning()) {
-		    let runner = this.getPlan(hitbox.center());
+		    let runner = this.getPlan(this.scene.player.hitbox.center());
 		    if (runner !== null) {
 			this.startPlan(runner);
-		    } else {
-			// give up.
-			this.target = null;
 		    }
 		}
 	    }
 	} else {
-	    if (0 < this._enemies.length) {
-		let target = choice(this._enemies);
-		let runner = this.getPlan(target.hitbox.center());
-		if (runner !== null) {
-		    this.startPlan(runner);
-		    this.target = target;
-		    this.shout('!');
+	    // normal.
+	    if (this.target instanceof Fellow ||
+		this.target instanceof Player) {
+		let shape = (this.target as Player).getShape();
+		if (!this.target.alive || this.shape == shape) {
+		    this.target = null;
+		}
+	    }
+	    
+	    if (this.target !== null) {
+		let hitbox = this.target.hitbox;
+		if (this.isPointBlank(hitbox)) {
+		    this.stopPlan();
+		    let vx = sign(hitbox.x - this.hitbox.x);
+		    if (hitbox.xdistance(this.hitbox) < 64) {
+			this.movement = new Vec2(-vx*4, 0);
+		    } else {
+			this.movement = new Vec2(vx*4, 0);
+		    }
+		    if (vx != 0) {
+			this.fire(vx);
+		    }
+		} else {
+		    if (!this.isPlanRunning()) {
+			let runner = this.getPlan(hitbox.center());
+			if (runner !== null) {
+			    this.startPlan(runner);
+			} else {
+			    // give up.
+			    this.target = null;
+			}
+		    }
+		}
+	    } else {
+		if (0 < this._enemies.length) {
+		    let target = choice(this._enemies);
+		    let runner = this.getPlan(target.hitbox.center());
+		    if (runner !== null) {
+			this.startPlan(runner);
+			this.target = target;
+			this.shout('!');
+		    }
 		}
 	    }
 	}
+	
 	this.move();
 	this._enemies = [] as [Entity];
     }
 
     fire(vx: number) {
 	if (this.ticks-this._prevfire < 30) return;
-	let obj = new Bullet(
-	    this.shape, this.tilemap,
-	    this.bounds.center(), new Vec2(vx, 0));
+	let obj:Entity;
+	if (this.scene.boss !== null) {
+	    obj = new BossBullet(
+		this.tilemap,
+		this.bounds.center(), new Vec2(vx, 0));
+	} else {
+	    obj = new Bullet(
+		this.shape, this.tilemap,
+		this.bounds.center(), new Vec2(vx, 0));
+	}	    
 	this._prevfire = this.ticks;
 	this.scene.addObject(obj);
 	playSound(this.scene.app.audios['shoot']);
@@ -534,17 +601,67 @@ class Fellow extends PlanningEntity implements Actor {
 //  Boss
 // 
 class Boss extends PlatformerEntity {
+    
     scene: Game;
     
-    constructor(scene: Game, bounds: Rect) {
+    health: number;
+    invuln: number;
+    movement: Vec2;
+    
+    constructor(scene: Game, bounds: Rect,
+		health=20) {
 	super(scene.tilemap, bounds, null, bounds);
 	this.zorder = 1;
 	this.scene = scene;
+	
+	this.health = health;
+	this.invuln = 0;
+	this.movement = new Vec2();
+	this.updateShape();
     }
     
+    getConstraintsFor(hitbox: Rect, force: boolean) {
+	return this.tilemap.world;
+    }
+
+    collide(entity: Entity) {
+	if (entity instanceof BossBullet) {
+	    this.hurt();
+	    entity.die();
+	}
+    }
+    
+    hurt() {
+	if (this.ticks < this.invuln) return;
+	this.health--;
+	this.invuln = this.ticks+15;
+	playSound(this.scene.app.audios['moan']);
+	if (this.health === 0) {
+	    this.die();
+	    this.scene.bossDied();
+	}
+    }
+
+    land() {
+	playSound(this.scene.app.audios['stomp']);
+    }	
+
     update() {
 	super.update();
-	this.src = this.scene.sheet.get(3+rnd(4));
+	if (this.ticks < this.invuln) {
+	    this.updateShape();
+	}
+	if (rnd(5) == 0) {
+	    this.movement = new Vec2((rnd(3)-1)*2, 0);
+	}
+	if (rnd(10) == 0) {
+	    this.setJump(Infinity);
+	}
+	this.movePos(this.movement);
+    }
+
+    updateShape() {
+	this.src = this.scene.sheet.get(7+rnd(3));
     }
 }
 
@@ -558,10 +675,12 @@ class Game extends GameScene {
     curlevel: number;
     
     dialog: ChatBox;
+    healthStatus: TextBox;
     tilemap: TileMap;
     player: Player;
+    boss: Boss;
     following: boolean;
-    healthStatus: TextBox;
+    special: number; 	// 0:normal, 1:boss, 2:ending.
 
     constructor(app: App) {
 	super(app);
@@ -570,7 +689,7 @@ class Game extends GameScene {
 	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
 	this.healthStatus.zorder = 9;
 	
-	this.curlevel = 4;
+	this.curlevel = 5;
     }
     
     init() {
@@ -580,8 +699,10 @@ class Game extends GameScene {
 	this.tilemap = new TileMap(16, level.getArray());
 	PlanningEntity.initialize(this.tilemap.tilesize);
 	this.following = level.following;
+	this.special = level.special;
 	
 	this.player = null;
+	this.boss = null;
 	this.tilemap.apply(
 	    (x: number, y: number, c: number) => {
 		let p = new Vec2(x, y);
@@ -614,7 +735,17 @@ class Game extends GameScene {
 		return false;
 	    });
 
-	//this.addObject(new Boss(this, this.tilemap.map2coord(new Rect(2,2,8,8))));
+	if (this.special == 1) {
+	    let task = new Task();
+	    task.duration = 60;
+	    task.died.subscribe(() => {
+		let rect = new Rect(6, 0, 8, 8);
+		this.tilemap.fill(Tile.NONE, rect);
+		this.boss = new Boss(this, this.tilemap.map2coord(rect))
+		this.addObject(this.boss);
+	    });
+	    this.addObject(task);
+	}
 	
 	this.dialog = new ChatBox(this.screen, this.app.font);
 	this.dialog.zorder = 8;
@@ -697,6 +828,9 @@ class Game extends GameScene {
 	    this.init();
 	});
 	this.addObject(particle);
+    }
+
+    bossDied() {
     }
 
     updateHealth() {

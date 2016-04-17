@@ -333,8 +333,15 @@ class PhysicalEntity extends Entity {
 	    let vy = this.jumpfunc(this.velocity.y, this._jumpt);
 	    this.velocity = this.getMove(new Vec2(this.velocity.x, vy), this.hitbox, false);
 	    this.movePos(this.velocity);
-	    this._landed = (0 < vy && this.velocity.y == 0);
+	    let landed = (0 < vy && this.velocity.y == 0);
+	    if (!this._landed && landed) {
+		this.land();
+	    }
+	    this._landed = landed;
 	}
+    }
+
+    land() {
     }
 
     isLanded() {

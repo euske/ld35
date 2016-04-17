@@ -45,11 +45,14 @@ class Level {
     map: [string];
     text: string;
     following: boolean;
+    special: number;
     
-    constructor(map:[string], text:string, following=false) {
+    constructor(map:[string], text:string,
+		following=false, special=0) {
 	this.map = map;
 	this.text = text;
 	this.following = following;
+	this.special = special;
     }
 
     getArray() {
@@ -168,7 +171,8 @@ const LEVELS = [
 	'####################',
     ],
 	      "THEIR BATTLES ARE FIERCE.\n"+
-	      "I DON'T WANT TO FIGHT THEM.\n",
+	      "I DON'T WANT TO FIGHT THEM.\n"+
+	      "BUT I HAVE NO OTHER CHOICE.\n",
 	      true
 	     ),
     
@@ -195,4 +199,26 @@ const LEVELS = [
 	      "DO LOOKS MATTER THAT MUCH TO THEM?\n"
 	     ),
     
+    new Level([			// LEVEL 5
+	//1234567890123456789
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'H..##############..H',
+	'HAAAAA.BBPBBB.CCCCCH',
+	'##................##',
+	'####............####',
+	'####################',
+    ],
+	      "WHAT THE...\n",
+	      true,
+	      1
+	     ),
 ];
