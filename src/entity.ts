@@ -306,10 +306,14 @@ class PhysicalEntity extends Entity {
     setJump(jumpend: number) {
 	if (0 < jumpend) {
 	    if (this.isLanded()) {
+		this.jump();
 		this._jumpt = 0;
 	    }
 	}
 	this._jumpend = jumpend;
+    }
+
+    jump() {
     }
 
     update() {

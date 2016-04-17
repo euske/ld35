@@ -33,10 +33,9 @@ class ChatBox extends DialogBox {
     border: string;
 
     constructor(screen:Rect, font:Font=null) {
-	let bounds1 = screen.anchor(0,1).expand(screen.width, 56, 0,1);
-	super(bounds1.inflate(-8,-8), font);
-	this.bounds1 = bounds1;
-	this.bounds2 = screen.anchor(0,-1).expand(screen.width, 56, 0,-1);
+	super(new Rect(8, 16, screen.width-16, 50), font);
+	this.bounds1 = new Rect(0, 8, screen.width, 56);
+	this.bounds2 = new Rect(0, screen.height-64, screen.width, 56);
 	this.bounds = this.bounds1;
 	this.border = 'white';
 	this.autohide = true;
@@ -61,6 +60,32 @@ class ChatBox extends DialogBox {
 	ctx.lineWidth = 2;
 	ctx.strokeStyle = this.border;
 	ctx.strokeRect(bx+rect.x, by+rect.y, rect.width, rect.height);
+    }
+}
+
+
+//  TextParticle
+//
+class TextParticle extends TextBox {
+
+    scene: Game;
+    movement: Vec2;
+    
+    constructor(scene: Game, pos: Vec2, text: string,
+		movement: Vec2=null, duration=30) {
+	super(new Rect(0,0), scene.app.font);
+	let size = this.font.getSize(text);
+	this.bounds = new Rect(pos.x-size.x/2, pos.y-size.y/2);
+	this.movement = movement;
+	this.duration = duration;
+	this.addSegment(new Vec2(), text);
+    }
+
+    update() {
+	super.update();
+	if (this.movement !== null) {
+	    this.movePos(this.movement);
+	}
     }
 }
 
@@ -126,6 +151,7 @@ class Switch extends Entity {
 		let door = objs[i] as Door;
 		door.open();
 	    }
+	    playSound(this.scene.app.audios['door']);
 	    this.updateState();
 	}
     }
@@ -152,8 +178,8 @@ class Bullet extends Projectile {
     constructor(shape: number, tilemap: TileMap, p: Vec2, v: Vec2) {
 	let bounds = p.expand(4, 2);
 	super(tilemap.world,
-	      bounds, new DummyImageSource(COLORS[shape]),
-	      bounds, v.scale(8));
+	      bounds, new DummyImageSource('white'),
+	      bounds.expand(4, 0), v.scale(8));
 	this.shape = shape;
 	this.tilemap = tilemap;
     }
@@ -182,17 +208,22 @@ class Player extends PlatformerEntity implements Actor {
     direction: Vec2;
     shape: number;
     usermove: Vec2;
+    health: number;
+    bullets: number;
 
     private _collide0: Entity;
     private _collide1: Entity;
 
-    constructor(scene: Game, bounds: Rect) {
+    constructor(scene: Game, bounds: Rect,
+		shape=3, health=3, bullets=3) {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
 	this.zorder = 1;
 	this.scene = scene;
 	this.usermove = new Vec2();
 	this.direction = new Vec2(1,0);
-	this.setShape(3);
+	this.setShape(shape);
+	this.health = health;
+	this.bullets = bullets;
 	this._collide0 = null;
 	this._collide1 = null;
     }
@@ -221,7 +252,7 @@ class Player extends PlatformerEntity implements Actor {
 
     collide(entity: Entity) {
 	if (entity instanceof Exit) {
-	    this.scene.endLevel();
+	    this.scene.exitLevel();
 	} else if (entity instanceof Switch) {
 	    (entity as Switch).toggle();
 	} else if (entity instanceof Item) {
@@ -231,13 +262,19 @@ class Player extends PlatformerEntity implements Actor {
 
     change() {
 	this.setShape((this.shape+1) % 3);
+	playSound(this.scene.app.audios['change']);
     }
     
+    jump() {
+	playSound(this.scene.app.audios['jump']);
+    }
+
     fire() {
 	let obj = new Bullet(
 	    this.shape, this.tilemap,
 	    this.bounds.center(), this.direction);
 	this.scene.addObject(obj);
+	playSound(this.scene.app.audios['shoot']);
     }
     
     update() {
@@ -254,10 +291,12 @@ class Player extends PlatformerEntity implements Actor {
     moveSmart(v: Vec2) {
 	v = v.copy();
 	if (v.y != 0) {
+	    let tilemap = this.scene.tilemap;
 	    if (v.y < 0 && !this.isHolding()) {
-		v.y = 0;
+		if (tilemap.findTile(isGrabbable, this.hitbox.add(v)) === null) {
+		    v.y = 0;
+		}
 	    } else if (this.getMove(v, this.hitbox, true).y == 0) {
-		let tilemap = this.scene.tilemap;
 		let dy = this.hitbox.height * sign(v.y);
 		if (tilemap.findTile(isGrabbable,
 				     this.hitbox.move(16, dy)) !== null) {
@@ -346,6 +385,7 @@ class Fellow extends PlanningEntity implements Actor {
 	    this.bounds.center(), new Vec2(vx, 0));
 	this._prevfire = this.ticks;
 	this.scene.addObject(obj);
+	playSound(this.scene.app.audios['shoot']);
     }
     
     observe(entity: Entity) {
@@ -363,13 +403,18 @@ class Fellow extends PlanningEntity implements Actor {
 		    this.makePlan(entity.hitbox.center());
 		}
 	    } else {
-		// lock on.
-		this.mode = 1;
-		this.target = entity;
-		log("lock on", this.target);
+		this.lockon(entity);
 	    }
 	    break;
 	}
+    }
+
+    lockon(entity: Entity) {
+	log("lock on", entity);
+	this.mode = 1;
+	this.target = entity;
+	this.scene.addObject(new TextParticle(this.scene, this.bounds.anchor(0,1), '!', new Vec2(0,-1)));
+	playSound(this.scene.app.audios['notice']);
     }
 }
 
@@ -403,12 +448,16 @@ class Game extends GameScene {
     dialog: ChatBox;
     tilemap: TileMap;
     player: Player;
+    lifeStatus: TextBox;
+    bulletStatus: TextBox;
 
     constructor(app: App) {
 	super(app);
 	this.sheet = new ImageSpriteSheet(app.images['sprites'], new Vec2(16,16));
 	this.tiles = new ImageSpriteSheet(app.images['tiles'], new Vec2(20,20));
-	this.curlevel = 0;
+	this.lifeStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
+	this.bulletStatus = new TextBox(new Rect(4,20,64,16), app.colorfont);
+	this.curlevel = 1;
     }
     
     init() {
@@ -461,7 +510,9 @@ class Game extends GameScene {
 	this.dialog.addDisplay(level.text, 2);
 	this.dialog.addPause(30);
 	this.dialog.start(this.layer);
-	
+
+	this.updateLife();
+	this.updateBullets();
 	this.app.lockKeys();
     }
 
@@ -502,6 +553,9 @@ class Game extends GameScene {
 	    ctx, bx, by,
 	    this.tilemap, this.tiles, ft);
 	super.render(ctx, bx, by);
+	
+	this.lifeStatus.render(ctx, bx, by);
+	this.bulletStatus.render(ctx, bx, by);
 	if (this.dialog.visible) {
 	    this.dialog.render(ctx, bx, by);
 	}
@@ -525,8 +579,27 @@ class Game extends GameScene {
 	}
     }
 
-    endLevel() {
+    exitLevel() {
 	this.curlevel++;
 	this.init();
+	playSound(this.app.audios['exit']);
+    }
+
+    updateLife() {
+	let s = '';
+	for (let i = 0; i < this.player.health; i++) {
+	    s += '\x7f';
+	}
+	this.lifeStatus.clear();
+	this.lifeStatus.putText([s]);
+    }
+
+    updateBullets() {
+	let s = '';
+	for (let i = 0; i < this.player.bullets; i++) {
+	    s += '\x7e';
+	}
+	this.bulletStatus.clear();
+	this.bulletStatus.putText([s]);
     }
 }

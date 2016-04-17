@@ -64,7 +64,7 @@ class App {
 	this.audios = audios;
 	this.labels = labels;
 	this.font = new Font(this.images['font'], 'white');
-	this.colorfont = new Font(this.images['font']);
+	this.colorfont = new Font(this.images['font'], null, 2);
 	this.shadowfont = new ShadowFont(this.images['font'], 'white');
 
 	// Initialize the off-screen bitmap.
