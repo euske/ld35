@@ -287,6 +287,7 @@ class PhysicalEntity extends Entity {
 
     velocity: Vec2 = new Vec2();
     maxspeed: Vec2 = new Vec2(6,6);
+    jumpfunc: JumpFunc;
     
     protected _jumpt: number;
     protected _jumpend: number;
@@ -301,6 +302,7 @@ class PhysicalEntity extends Entity {
 	this._jumpt = Infinity;
 	this._jumpend = 0;
 	this._landed = false;
+	this.jumpfunc = PhysicalEntity.jumpfunc;
     }
 
     setJump(jumpend: number) {
@@ -328,7 +330,7 @@ class PhysicalEntity extends Entity {
   
     fall() {
 	if (!this.isHolding()) {
-	    let vy = PhysicalEntity.jumpfunc(this.velocity.y, this._jumpt);
+	    let vy = this.jumpfunc(this.velocity.y, this._jumpt);
 	    this.velocity = this.getMove(new Vec2(this.velocity.x, vy), this.hitbox, false);
 	    this.movePos(this.velocity);
 	    this._landed = (0 < vy && this.velocity.y == 0);

@@ -35,7 +35,7 @@ class ChatBox extends DialogBox {
     constructor(screen:Rect, font:Font=null) {
 	super(new Rect(8, 16, screen.width-16, 50), font);
 	this.bounds1 = new Rect(0, 8, screen.width, 56);
-	this.bounds2 = new Rect(0, screen.height-64, screen.width, 56);
+	this.bounds2 = new Rect(0, screen.height-80, screen.width, 56);
 	this.bounds = this.bounds1;
 	this.border = 'white';
 	this.autohide = true;
@@ -90,9 +90,9 @@ class TextParticle extends TextBox {
 }
 
 
-//  Item
+//  Changer
 //
-class Item extends Entity {
+class Changer extends Entity {
     constructor(bounds: Rect, src: ImageSource) {
 	super(bounds.expand(4, 4, 1,-1), src, bounds);
     }
@@ -144,7 +144,8 @@ class Switch extends Entity {
     toggle() {
 	if (!this.swon) {
 	    this.swon = true;
-	    let objs = this.scene.layer.findObjectsWithin(
+	    let objs = this.scene.layer.findObjects(
+		this.scene.tilemap.world,
 		(e:Entity) => { return e instanceof Door; }
 	    )
 	    for (let i = 0; i < objs.length; i++) {
@@ -169,7 +170,6 @@ class Exit extends Entity {
 
 //  Bullet
 //
-const COLORS = ['red', 'blue', 'yellow', 'green'];
 class Bullet extends Projectile {
 
     shape: number;
@@ -209,23 +209,27 @@ class Player extends PlatformerEntity implements Actor {
     direction: Vec2;
     shape: number;
     usermove: Vec2;
+    
     health: number;
-    bullets: number;
+    invuln: number;
 
     private _collide0: Entity;
     private _collide1: Entity;
 
     constructor(scene: Game, bounds: Rect,
-		shape=3, health=3, bullets=3) {
+		shape=-1, health=3) {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
-	this.zorder = 1;
+	this.jumpfunc = (
+	    (vy:number, t:number) => { return (0 <= t && t <= 7)? -4 : vy+1; }
+	);
+	this.zorder = 2;
 	this.scene = scene;
 	this.shadow = scene.sheet.get(1);
 	this.usermove = new Vec2();
 	this.direction = new Vec2(1,0);
 	this.setShape(shape);
 	this.health = health;
-	this.bullets = bullets;
+	this.invuln = 0;
 	this._collide0 = null;
 	this._collide1 = null;
     }
@@ -252,7 +256,7 @@ class Player extends PlatformerEntity implements Actor {
     setShape(shape: number) {
 	if (this.shape != shape) {
 	    this.shape = shape;
-	    this.src = this.scene.sheet.get(2+shape);
+	    this.src = this.scene.sheet.get(3+shape);
 	}
     }
     
@@ -261,8 +265,12 @@ class Player extends PlatformerEntity implements Actor {
 	    this.scene.exitLevel();
 	} else if (entity instanceof Switch) {
 	    (entity as Switch).toggle();
-	} else if (entity instanceof Item) {
+	} else if (entity instanceof Changer) {
 	    this._collide1 = entity;
+	} else if (entity instanceof Bullet) {
+	    if (this.shape != (entity as Bullet).shape) {
+		this.hurt();
+	    }
 	}
     }
 
@@ -273,6 +281,7 @@ class Player extends PlatformerEntity implements Actor {
 	    this._collide0 === null) {
 	    this.change();
 	}
+	this.visible = (this.invuln < this.ticks || blink(this.ticks, 10));
 	this._collide0 = this._collide1;
 	this._collide1 = null;
     }
@@ -293,12 +302,16 @@ class Player extends PlatformerEntity implements Actor {
 	playSound(this.scene.app.audios['jump']);
     }
 
-    fire() {
-	let obj = new Bullet(
-	    this.shape, this.tilemap,
-	    this.bounds.center(), this.direction);
-	this.scene.addObject(obj);
-	playSound(this.scene.app.audios['shoot']);
+    hurt() {
+	if (this.ticks < this.invuln) return;
+	this.health--;
+	this.invuln = this.ticks+15;
+	this.scene.updateHealth();
+	playSound(this.scene.app.audios['hurt']);
+	if (this.health === 0) {
+	    this.die();
+	    this.scene.repeatLevel();
+	}
     }
     
     moveSmart(v: Vec2) {
@@ -332,21 +345,29 @@ class Fellow extends PlanningEntity implements Actor {
     scene: Game;
     shadow: ImageSource;
     shape: number;
-    mode: number;
-    target: Entity;
 
-    private _prevfire: number;
+    health: number;
+    invuln: number;
+    target: Entity;
+    greeted: boolean;
     
-    constructor(scene: Game, bounds: Rect, shape: number) {
+    private _prevfire: number;
+    private _enemies: [Entity];
+    
+    constructor(scene: Game, bounds: Rect, shape: number, health=3) {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
 	this.zorder = 1;
 	this.scene = scene;
 	this.shadow = scene.sheet.get(1);
 	this.shape = shape;
-	this.src = this.scene.sheet.get(2+shape);
-	this.mode = 0;
+	this.src = this.scene.sheet.get(3+shape);
+	
+	this.health = health;
+	this.invuln = 0;
 	this.target = null;
+	this.greeted = false;
 	this._prevfire = 0;
+	this._enemies = [] as [Entity];
     }
 
     getConstraintsFor(hitbox: Rect, force: boolean) {
@@ -368,40 +389,83 @@ class Fellow extends PlanningEntity implements Actor {
 	return this.shape;
     }
     
+    observe(entity: Entity) {
+	let shape: number;
+	if (entity instanceof Fellow ||
+	    entity instanceof Player) {
+	    shape = (entity as Actor).getShape();
+	} else {
+	    return;
+	}
+
+	if (this.target === null) {
+	    if (shape == this.shape) {
+		if (entity instanceof Player && !this.greeted) {
+		    if (!this.isPlanRunning()) {
+			if (this.makePlan(entity.hitbox.center())) {
+			    this.shout('YO.');
+			    this.greeted = true;
+			}
+		    }
+		}
+	    } else {
+		this._enemies.push(entity);
+	    }
+	}
+    }
+    
+    collide(entity: Entity) {
+	if (entity instanceof Bullet) {
+	    if (this.shape != (entity as Bullet).shape) {
+		this.hurt();
+	    }
+	}
+    }
+
     update() {
 	super.update();
+	this.visible = (this.invuln < this.ticks || blink(this.ticks, 10));
 	if (this.target instanceof Fellow ||
 	    this.target instanceof Player) {
 	    let shape = (this.target as Player).getShape();
 	    if (!this.target.alive || this.shape == shape) {
 		this.target = null;
-		this.mode = 0;
 	    }
 	}
-	switch (this.mode) {
-	case 1:
-	    if (this.target !== null) {
-		let hitbox = this.target.hitbox;
-		if (hitbox.ydistance(this.hitbox) < 0) {
-		    this.stopPlan();
-		    let vx = sign(hitbox.x - this.hitbox.x);
-		    if (hitbox.xdistance(this.hitbox) < 64) {
-			this.movement = new Vec2(vx*4, 0);
-		    } else {
-			this.movement = new Vec2(-vx*4, 0);
-		    }
-		    if (vx != 0) {
-			this.fire(vx);
-		    }
+	if (this.target !== null) {
+	    let hitbox = this.target.hitbox;
+	    if (this.isPointBlank(hitbox)) {
+		this.stopPlan();
+		let vx = sign(hitbox.x - this.hitbox.x);
+		if (hitbox.xdistance(this.hitbox) < 64) {
+		    this.movement = new Vec2(-vx*4, 0);
 		} else {
-		    if (!this.isPlanRunning()) {
-			this.makePlan(hitbox.center());
+		    this.movement = new Vec2(vx*4, 0);
+		}
+		if (vx != 0) {
+		    this.fire(vx);
+		}
+	    } else {
+		if (!this.isPlanRunning()) {
+		    if (!this.makePlan(hitbox.center())) {
+			// give up.
+			this.target = null;
 		    }
 		}
 	    }
-	    break;
+	} else {
+	    if (0 < this._enemies.length) {
+		let target = this._enemies[rnd(this._enemies.length)];
+		if (!this.isPlanRunning()) {
+		    if (this.makePlan(target.hitbox.center())) {
+			this.target = target;
+			this.shout('!');
+		    }
+		}
+	    }
 	}
 	this.move();
+	this._enemies = [] as [Entity];
     }
 
     fire(vx: number) {
@@ -413,37 +477,33 @@ class Fellow extends PlanningEntity implements Actor {
 	this.scene.addObject(obj);
 	playSound(this.scene.app.audios['shoot']);
     }
+
+    shout(text: string) {
+	let particle = new TextParticle(
+	    this.scene, this.bounds.anchor(0,1), text, new Vec2(0,-1));
+	this.scene.addObject(particle);
+	playSound(this.scene.app.audios['notice']);
+    }
     
-    observe(entity: Entity) {
-	let shape: number;
-	if (entity instanceof Fellow ||
-	    entity instanceof Player) {
-	    shape = (entity as Actor).getShape();
-	} else {
-	    return;
-	}
-	switch (this.mode) {
-	case 0:
-	    if (shape == this.shape) {
-		if (!this.isPlanRunning()) {
-		    this.makePlan(entity.hitbox.center());
-		}
-	    } else {
-		this.lockon(entity);
-	    }
-	    break;
+    hurt() {
+	if (this.ticks < this.invuln) return;
+	this.health--;
+	this.invuln = this.ticks+15;
+	if (this.health === 0) {
+	    this.die();
+	    let particle = new Sprite(this.bounds, this.scene.sheet.get(6));
+	    particle.zorder = 7;
+	    particle.duration = 30;
+	    this.scene.addObject(particle);
 	}
     }
 
-    lockon(entity: Entity) {
-	log("lock on", entity);
-	this.mode = 1;
-	this.target = entity;
-	let particle = new TextParticle(
-	    this.scene, this.bounds.anchor(0,1), '!',
-	    new Vec2(0,-1))
-	this.scene.addObject(particle);
-	playSound(this.scene.app.audios['notice']);
+    isPointBlank(hitbox: Rect) {
+	if (hitbox.ydistance(this.hitbox) < 0) {
+	    let range = hitbox.union(this.hitbox);
+	    return (this.tilemap.findTile(isStoppable, range) === null);
+	}
+	return false;
     }
 }
 
@@ -461,7 +521,7 @@ class Boss extends PlatformerEntity {
     
     update() {
 	super.update();
-	this.src = this.scene.sheet.get(2+rnd(4));
+	this.src = this.scene.sheet.get(3+rnd(4));
     }
 }
 
@@ -477,16 +537,15 @@ class Game extends GameScene {
     dialog: ChatBox;
     tilemap: TileMap;
     player: Player;
-    lifeStatus: TextBox;
-    bulletStatus: TextBox;
+    healthStatus: TextBox;
 
     constructor(app: App) {
 	super(app);
 	this.sheet = new ImageSpriteSheet(app.images['sprites'], new Vec2(16,16));
 	this.tiles = new ImageSpriteSheet(app.images['tiles'], new Vec2(20,20));
-	this.lifeStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
-	this.bulletStatus = new TextBox(new Rect(4,20,64,16), app.colorfont);
-	this.curlevel = 1;
+	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
+	this.healthStatus.zorder = 9;
+	this.curlevel = 2;
     }
     
     init() {
@@ -503,11 +562,11 @@ class Game extends GameScene {
 		let bounds = this.tilemap.map2coord(p);
 		switch (c) {
 		case Tile.PLAYER:
-		    this.player = new Player(this, bounds, 0);
+		    this.player = new Player(this, bounds);
 		    this.addObject(this.player);
 		    break;
-		case Tile.ITEMENT:
-		    this.addObject(new Item(bounds, this.tiles.get(Tile.ITEM)));
+		case Tile.CHANGERENT:
+		    this.addObject(new Changer(bounds, this.tiles.get(Tile.CHANGER)));
 		    break;
 		case Tile.DOORENT:
 		    this.addObject(new Door(this.tilemap, p, bounds));
@@ -532,7 +591,7 @@ class Game extends GameScene {
 	//this.addObject(new Boss(this, this.tilemap.map2coord(new Rect(2,2,8,8))));
 	
 	this.dialog = new ChatBox(this.screen, this.app.font);
-	this.dialog.zorder = 2;
+	this.dialog.zorder = 8;
 	this.dialog.linespace = 2;
 	this.dialog.padding = 4;
 	this.dialog.background = 'black';
@@ -540,28 +599,18 @@ class Game extends GameScene {
 	this.dialog.addPause(30);
 	this.dialog.start(this.layer);
 
-	this.updateLife();
-	this.updateBullets();
+	this.updateHealth();
 	this.app.lockKeys();
     }
 
     tick() {
 	super.tick();
 	this.scanObjects();
-	this.layer.setCenter(this.tilemap.world, this.player.bounds.inflate(64,64));
+	this.layer.setCenter(this.tilemap.world, this.player.bounds.inflate(128,64));
 	this.dialog.adjustPosition(this.player.bounds);
 	this.dialog.tick();
     }
 
-    keydown(keycode:number) {
-	let keysym = getKeySym(keycode);
-	switch (keysym) {
-	case 'cancel':
-	    this.player.fire();
-	    break;
-	}
-    }
-    
     set_dir(v: Vec2) {
 	super.set_dir(v);
 	this.player.setMove(this.app.key_dir);
@@ -583,8 +632,7 @@ class Game extends GameScene {
 	    this.tilemap, this.tiles, ft);
 	super.render(ctx, bx, by);
 	
-	this.lifeStatus.render(ctx, bx, by);
-	this.bulletStatus.render(ctx, bx, by);
+	this.healthStatus.render(ctx, bx, by);
 	if (this.dialog.visible) {
 	    this.dialog.render(ctx, bx, by);
 	}
@@ -614,21 +662,22 @@ class Game extends GameScene {
 	playSound(this.app.audios['exit']);
     }
 
-    updateLife() {
+    repeatLevel() {
+	let particle = new Sprite(this.player.bounds, this.sheet.get(6));
+	particle.zorder = 7;
+	particle.duration = 30;
+	particle.died.subscribe(() => {
+	    this.init();
+	});
+	this.addObject(particle);
+    }
+
+    updateHealth() {
 	let s = '';
 	for (let i = 0; i < this.player.health; i++) {
 	    s += '\x7f';
 	}
-	this.lifeStatus.clear();
-	this.lifeStatus.putText([s]);
-    }
-
-    updateBullets() {
-	let s = '';
-	for (let i = 0; i < this.player.bullets; i++) {
-	    s += '\x7e';
-	}
-	this.bulletStatus.clear();
-	this.bulletStatus.putText([s]);
+	this.healthStatus.clear();
+	this.healthStatus.putText([s]);
     }
 }
