@@ -131,7 +131,7 @@ class TextBox extends Sprite {
     }
 
     toString() {
-	return '<TextBox: '+this.segments+'>';
+	return '<TextBox: '+this.frame+'>';
     }
 
     getSize(lines: [string], font: Font=null) {

@@ -40,6 +40,10 @@ class TileMap {
 			      this.height*this.tilesize);
     }
 
+    toString() {
+	return '<TileMap: '+this.width+','+this.height+'>';
+    }
+  
     get(x: number, y: number) {
 	if (0 <= x && 0 <= y && x < this.width && y < this.height) {
 	    return this.map[y][x];

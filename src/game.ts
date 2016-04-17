@@ -439,7 +439,10 @@ class Fellow extends PlanningEntity implements Actor {
 	log("lock on", entity);
 	this.mode = 1;
 	this.target = entity;
-	this.scene.addObject(new TextParticle(this.scene, this.bounds.anchor(0,1), '!', new Vec2(0,-1)));
+	let particle = new TextParticle(
+	    this.scene, this.bounds.anchor(0,1), '!',
+	    new Vec2(0,-1))
+	this.scene.addObject(particle);
 	playSound(this.scene.app.audios['notice']);
     }
 }
@@ -500,7 +503,7 @@ class Game extends GameScene {
 		let bounds = this.tilemap.map2coord(p);
 		switch (c) {
 		case Tile.PLAYER:
-		    this.player = new Player(this, bounds);
+		    this.player = new Player(this, bounds, 0);
 		    this.addObject(this.player);
 		    break;
 		case Tile.ITEMENT:

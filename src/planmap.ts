@@ -11,11 +11,11 @@ interface PlanActor {
     isMovable(v: Vec2): boolean;
     isLanded(): boolean;
     isHolding(): boolean;
-    getHitbox(): Rect;
     getGridPos(): Vec2;
+    getGridBox(): Rect;
+    getGridBoxAt(p: Vec2): Rect;
     getJumpPoints(): [Vec2];
     getFallPoints(): [Vec2];
-    getHitboxAt(p: Vec2): Rect;
     canMoveTo(p: Vec2): boolean;
     canGrabAt(p: Vec2): boolean;
     canStandAt(p: Vec2): boolean;
@@ -25,88 +25,6 @@ interface PlanActor {
     canJump(p0: Vec2, p1: Vec2): boolean;
     moveToward(p: Vec2): void;
     jumpToward(p: Vec2): void;
-}
-
-
-//  PointSet
-// 
-interface PointMap {
-    [index: string]: Vec2;
-}
-class PointSet {
-
-    _pts: PointMap;
-
-    constructor() {
-	this._pts = {} as PointMap;
-    }
-
-    add(p: Vec2) {
-	this._pts[p.x+','+p.y] = p;
-    }
-
-    exists(p: Vec2) {
-	return (this._pts[p.x+','+p.y] !== undefined);
-    }
-
-    toList() {
-	let a = [] as [Vec2];
-	for (var k in this._pts) {
-	    a.push(this._pts[k]);
-	}
-	return a;
-    }
-}
-
-
-// calcJumpRange
-function calcJumpRange(
-    gridsize:number, speed:number,
-    jumpfunc:JumpFunc, maxtime=15)
-{
-    let pts = new PointSet();
-    for (let jt = 1; jt < maxtime; jt++) {
-	let p = new Vec2();
-	let vy = 0;
-	for (let t = 0; t < maxtime; t++) {
-	    vy = (t < jt)? jumpfunc(vy, t) : jumpfunc(vy, Infinity);
-	    if (0 <= vy) {
-		// tip point.
-		let cy = Math.ceil(p.y/gridsize);
-		for (let x = 0; x <= p.x; x++) {
-		    let c = new Vec2(int(x/gridsize+.5), cy);
-		    if (c.x == 0 && c.y == 0) continue;
-		    pts.add(c);
-		}
-		break;
-	    }
-	    p.x += speed;
-	    p.y += vy;
-	}
-    }
-    return pts.toList();
-}
-
-// calcFallRange
-function calcFallRange(
-    gridsize:number, speed:number,
-    jumpfunc:JumpFunc, maxtime=15)
-{
-    let p = new Vec2();
-    let vy = 0;
-    let pts = new PointSet();
-    for (let t = 0; t < maxtime; t++) {
-	vy = jumpfunc(vy, Infinity);
-	p.x += speed;
-	p.y += vy;
-	let cy = Math.ceil(p.y/gridsize);
-	for (let x = 0; x <= p.x; x++) {
-	    let c = new Vec2(int(x/gridsize+.5), cy);
-	    if (c.x == 0 && c.y == 0) continue;
-	    pts.add(c);
-	}
-    }
-    return pts.toList();
 }
 
 
@@ -318,27 +236,28 @@ class PlanMap {
 		}
 
 		// try falling.
-		let fallpts = this.actor.getFallPoints();
-		for (let i = 0; i < fallpts.length; i++) {
-		    let v = fallpts[i];
-		    let fp = p.move(-v.x*vx, -v.y);
-		    // try the v.x == 0 case only once.
-		    if (v.x === 0 && vx < 0) continue;
-		    if (!range.contains(fp)) continue;
-		    //  +--+....  [vx = +1]
-		    //  |  |....
-		    //  +-X+.... (fp.x,fp.y) original position.
-		    // ##.......
-		    //   ...+--+
-		    //   ...|  |
-		    //   ...+-X+ (p.x,p.y)
-		    //     ######
-		    if (!this.actor.canMoveTo(fp)) continue;
-		    if (this.actor.canFall(fp, p) && 
-			this.actor.canStandAt(p)) {
-			let dc = Math.abs(v.x)+Math.abs(v.y);
-			this.addAction(start, new PlanAction(
-			    fp, null, ActionType.FALL, a0, dc));
+		if (this.actor.canStandAt(p)) {
+		    let fallpts = this.actor.getFallPoints();
+		    for (let i = 0; i < fallpts.length; i++) {
+			let v = fallpts[i];
+			// try the v.x == 0 case only once.
+			if (v.x === 0 && vx < 0) continue;
+			let fp = p.move(-v.x*vx, -v.y);
+			if (!range.contains(fp)) continue;
+			if (!this.actor.canMoveTo(fp)) continue;
+			//  +--+....  [vx = +1]
+			//  |  |....
+			//  +-X+.... (fp.x,fp.y) original position.
+			// ##.......
+			//   ...+--+
+			//   ...|  |
+			//   ...+-X+ (p.x,p.y)
+			//     ######
+			if (this.actor.canFall(fp, p)) {
+			    let dc = Math.abs(v.x)+Math.abs(v.y);
+			    this.addAction(start, new PlanAction(
+				fp, null, ActionType.FALL, a0, dc));
+			}
 		    }
 		}
 
@@ -351,6 +270,8 @@ class PlanMap {
 			if (v.x === 0 && vx < 0) continue;
 			let jp = p.move(-v.x*vx, -v.y);
 			if (!range.contains(jp)) continue;
+			if (!this.actor.canMoveTo(jp)) continue;
+			if (!this.actor.canGrabAt(jp) && !this.actor.canStandAt(jp)) continue;
 			//  ....+--+  [vx = +1]
 			//  ....|  |
 			//  ....+-X+ (p.x,p.y) tip point
@@ -359,9 +280,30 @@ class PlanMap {
 			//  |  |...
 			//  +-X+... (jp.x,jp.y) original position.
 			// ######
+			if (this.actor.canJump(jp, p)) {
+			    let dc = Math.abs(v.x)+Math.abs(v.y);
+			    this.addAction(start, new PlanAction(
+				jp, null, ActionType.JUMP, a0, dc));
+			}
+		    }
+		} else if (this.actor.canStandAt(p)) {
+		    let jumppts = this.actor.getJumpPoints();
+		    for (let i = 0; i < jumppts.length; i++) {
+			let v = jumppts[i];
+			if (v.x === 0) continue;
+			let jp = p.move(-v.x*vx, -v.y);
+			if (!range.contains(jp)) continue;
 			if (!this.actor.canMoveTo(jp)) continue;
-			if (this.actor.canJump(jp, p) &&
-			    (this.actor.canGrabAt(jp) || this.actor.canStandAt(jp))) {
+			if (!this.actor.canGrabAt(jp) && !this.actor.canStandAt(jp)) continue;
+			//  ....+--+  [vx = +1]
+			//  ....|  |
+			//  ....+-X+ (p.x,p.y) tip point
+			//  .....##
+			//  +--+...
+			//  |  |...
+			//  +-X+... (jp.x,jp.y) original position.
+			// ######
+			if (this.actor.canJump(jp, p)) {
 			    let dc = Math.abs(v.x)+Math.abs(v.y);
 			    this.addAction(start, new PlanAction(
 				jp, null, ActionType.JUMP, a0, dc));

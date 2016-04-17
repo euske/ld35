@@ -6,6 +6,90 @@
 //   requires: planmap.ts
 
 
+//  PointSet
+// 
+interface PointMap {
+    [index: string]: Vec2;
+}
+class PointSet {
+
+    _pts: PointMap;
+
+    constructor() {
+	this._pts = {} as PointMap;
+    }
+
+    add(p: Vec2) {
+	this._pts[p.x+','+p.y] = p;
+    }
+
+    exists(p: Vec2) {
+	return (this._pts[p.x+','+p.y] !== undefined);
+    }
+
+    toList() {
+	let a = [] as [Vec2];
+	for (var k in this._pts) {
+	    a.push(this._pts[k]);
+	}
+	return a;
+    }
+}
+
+
+// calcJumpRange
+function calcJumpRange(
+    gridsize:number, speed:number,
+    jumpfunc:JumpFunc, maxtime=15)
+{
+    let pts = new PointSet();
+    for (let jt = 1; jt < maxtime; jt++) {
+	let p = new Vec2();
+	let vy = 0;
+	for (let t = 0; t < maxtime; t++) {
+	    vy = (t < jt)? jumpfunc(vy, t) : jumpfunc(vy, Infinity);
+	    if (0 <= vy) {
+		// tip point.
+		let cy = Math.ceil(p.y/gridsize);
+		for (let x = 0; x <= p.x; x++) {
+		    let c = new Vec2(int(x/gridsize+.5), cy);
+		    if (c.x == 0 && c.y == 0) continue;
+		    pts.add(c);
+		}
+		break;
+	    }
+	    p.x += speed;
+	    p.y += vy;
+	}
+    }
+    return pts.toList();
+}
+
+// calcFallRange
+function calcFallRange(
+    gridsize:number, speed:number,
+    jumpfunc:JumpFunc, maxtime=15)
+{
+    let p = new Vec2();
+    let vy = 0;
+    let pts = new PointSet();
+    for (let t = 0; t < maxtime; t++) {
+	vy = jumpfunc(vy, Infinity);
+	p.x += speed;
+	p.y += vy;
+	let cy = Math.ceil(p.y/gridsize);
+	for (let x = 0; x <= p.x; x++) {
+	    let c = new Vec2(int(x/gridsize+.5), cy);
+	    if (c.x == 0 && c.y == 0) continue;
+	    pts.add(c);
+	}
+    }
+    return pts.toList();
+}
+
+
+//  PlanActionRunner
+//
 class PathEntry {
     p: Vec2;
     d: number;
@@ -17,8 +101,6 @@ class PathEntry {
     }
 }
 
-//  PlanActionRunner
-//
 class PlanActionRunner {
 
     plan: PlanMap;
@@ -69,8 +151,8 @@ class PlanActionRunner {
 	case ActionType.FALL:
 	    let path = this.findSimplePath(cur, dst);
 	    for (let i = 0; i < path.length; i++) {
-		let r = actor.getHitboxAt(path[i]);
-		let v = r.diff(actor.getHitbox());
+		let r = actor.getGridBoxAt(path[i]);
+		let v = r.diff(actor.getGridBox());
 		if (actor.isMovable(v)) {
 		    actor.moveToward(path[i]);
 		    break;
@@ -162,6 +244,7 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
     timeout: number;
     runner: PlanActionRunner;
     plan: PlanMap;
+    gridbox: Rect;
     obstacle: RangeMap;
     grabbable: RangeMap;
     stoppable: RangeMap;
@@ -178,6 +261,8 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	PlanningEntity.speed = speed;
 	PlanningEntity.jumppts = calcJumpRange(gridsize, speed, PhysicalEntity.jumpfunc);
 	PlanningEntity.fallpts = calcFallRange(gridsize, speed, PhysicalEntity.jumpfunc);
+	//log("jumppts="+PlanningEntity.jumppts);
+	//log("fallpts="+PlanningEntity.fallpts);
     }
     
     constructor(tilemap: TileMap, bounds: Rect,
@@ -187,8 +272,11 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	this.timeout = timeout;
 	this.runner = null;
 	this.movement = new Vec2();
-
-	this.plan = new PlanMap(this, PlanningEntity.gridsize, this.tilemap);
+	let gs = PlanningEntity.gridsize;
+	this.gridbox = new Rect(0, 0,
+				Math.ceil(hitbox.width/gs)*gs,
+				Math.ceil(hitbox.height/gs)*gs);
+	this.plan = new PlanMap(this, gs, this.tilemap);
     }
 
     updateRangeMaps() {
@@ -202,12 +290,12 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 
     startPlan(runner: PlanActionRunner) {
 	this.runner = runner;
-	log("begin:"+this.runner);
+	//log("begin:"+this.runner);
     }
   
     stopPlan() {
 	if (this.runner !== null) {
-	    log("end:  "+this.runner);
+	    //log("end:  "+this.runner);
 	    this.movement = new Vec2();
 	}
 	this.runner = null;
@@ -263,70 +351,79 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
     getGridPos() {
 	return this.plan.coord2grid(this.hitbox.center());
     }
-    getHitboxAt(p: Vec2) {
-	return this.plan.grid2coord(p).expand(this.hitbox.width, this.hitbox.height);
+    getGridBox() {
+	return this.hitbox.center().expand(this.gridbox.width, this.gridbox.height);
+    }
+    getGridBoxAt(p: Vec2) {
+	return this.plan.grid2coord(p).expand(this.gridbox.width, this.gridbox.height);
     }
     canMoveTo(p: Vec2) {
-	let hitbox = this.getHitboxAt(p);
+	let hitbox = this.getGridBoxAt(p);
 	return !this.obstacle.exists(this.tilemap.coord2map(hitbox));
     }
     canGrabAt(p: Vec2) {
-	let hitbox = this.getHitboxAt(p);
+	let hitbox = this.getGridBoxAt(p);
 	return this.grabbable.exists(this.tilemap.coord2map(hitbox));
     }
     canStandAt(p: Vec2) {
-	let hitbox = this.getHitboxAt(p).move(0, this.plan.gridsize);
+	let hitbox = this.getGridBoxAt(p).move(0, this.plan.gridsize);
 	return this.stoppable.exists(this.tilemap.coord2map(hitbox));
     }
     canClimbUp(p: Vec2) {
-	let hitbox = this.getHitboxAt(p);
+	let hitbox = this.getGridBoxAt(p);
 	return this.grabbable.exists(this.tilemap.coord2map(hitbox));
     }
     canClimbDown(p: Vec2) {
-	let hitbox = this.getHitboxAt(p).move(0, this.hitbox.height);
+	let hitbox = this.getGridBoxAt(p).move(0, this.hitbox.height);
 	return this.grabbable.exists(this.tilemap.coord2map(hitbox));
     }
     canFall(p0: Vec2, p1: Vec2) {
-	//  +--+....
-	//  |  |....
-	//  +-X+.... (p0.x,p0.y) original position.
-	// ##.......
-	//   ...+--+
-	//   ...|  |
-	//   ...+-X+ (p1.x,p1.y)
-	//     ######
-	let hb0 = this.getHitboxAt(p0);
-	let hb1 = this.getHitboxAt(p1);
-	let x0 = Math.min(hb0.right(), hb1.x);
-	let x1 = Math.max(hb0.x, hb1.right());
+	//  +--+.....
+	//  |  |.....
+	//  +-X+..... (p0.x,p0.y) original position.
+	// ##   .....
+	//      .+--+
+	//      .|  |
+	//      .+-X+ (p1.x,p1.y)
+	//      ######
+	let hb0 = this.getGridBoxAt(p0);
+	let hb1 = this.getGridBoxAt(p1);
+	let xc = (hb0.x < hb1.x)? hb0.right() : hb0.x;
+	let x0 = Math.min(xc, hb1.x);
+	let x1 = Math.max(xc, hb1.right());
 	let y0 = Math.min(hb0.y, hb1.y);
 	let y1 = Math.max(hb0.bottom(), hb1.bottom());
 	let rect = new Rect(x0, y0, x1-x0, y1-y0);
 	return !this.stoppable.exists(this.tilemap.coord2map(rect));
     }
     canJump(p0: Vec2, p1: Vec2) {
-	//  ....+--+
-	//  ....|  |
-	//  ....+-X+ (p1.x,p1.y) tip point
-	//  .......
-	//  +--+...
-	//  |  |...
-	//  +-X+... (p0.x,p0.y) original position.
+	//  .....+--+
+	//  .....|  |
+	//  .....+-X+ (p1.x,p1.y) tip point
+	//  .....
+	//  +--+.
+	//  |  |.
+	//  +-X+. (p0.x,p0.y) original position.
 	// ######
-	let hb0 = this.getHitboxAt(p0);
-	let hb1 = this.getHitboxAt(p1);
-	// extra care is needed not to allow the following case:
+	let hb0 = this.getGridBoxAt(p0);
+	let hb1 = this.getGridBoxAt(p1);
+	let xc = (hb0.x < hb1.x)? hb1.x : hb1.right();
+	let x0 = Math.min(xc, hb0.x);
+	let x1 = Math.max(xc, hb0.right());
+	let y0 = Math.min(hb0.y, hb1.y);
+	let y1 = Math.max(hb0.bottom(), hb1.bottom());
+	let rect = new Rect(x0, y0, x1-x0, y1-y0);
+	// XXX extra care is needed not to allow the following case:
 	//      .#
 	//    +--+
 	//    |  |  (this is impossiburu!)
 	//    +-X+
 	//       #
-	let rect = hb0.union(hb1);
 	return !this.stoppable.exists(this.tilemap.coord2map(rect));
     }
 
     moveToward(p: Vec2) {
-	let r = this.getHitboxAt(p);
+	let r = this.getGridBoxAt(p);
 	let v = r.diff(this.hitbox);
 	v.x = clamp(-PlanningEntity.speed, v.x, +PlanningEntity.speed);
 	v.y = clamp(-PlanningEntity.speed, v.y, +PlanningEntity.speed);

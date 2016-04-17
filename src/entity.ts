@@ -18,6 +18,10 @@ class Task {
 	this.died = new Slot(this);
     }
 
+    toString() {
+	return '<Task: ticks='+this.ticks+'>';
+    }
+  
     start(layer: Layer) {
 	this.layer = layer;
 	this.ticks = 0;
@@ -204,10 +208,6 @@ class Entity extends Sprite {
 	return this.bounds.inflate(32, 32);
     }
     
-    getHitbox() {
-	return this.hitbox;
-    }
-  
     isMovable(v0: Vec2) {
 	if (this.hitbox !== null) {
 	    let v1 = this.getMove(v0, this.hitbox, true);
