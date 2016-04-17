@@ -245,14 +245,6 @@ class PlanningEntity extends PlatformerEntity implements PlanActor {
 	this.moveIfPossible(this.movement, true);
     }
 
-    fall() {
-	if (!this.isHolding()) {
-	    this.velocity.y = PhysicalEntity.jumpfunc(this.velocity.y, this._jumpt);
-	    this.velocity = this.getMove(this.velocity, this.hitbox, false);
-	    this.movePos(this.velocity);
-	}
-    }
-
     render(ctx:CanvasRenderingContext2D, bx:number, by:number) {
 	super.render(ctx, bx, by);
 	if (PlanningEntity.debug && this.runner !== null) {

@@ -205,6 +205,7 @@ interface Actor {
 class Player extends PlatformerEntity implements Actor {
 
     scene: Game;
+    shadow: ImageSource;
     direction: Vec2;
     shape: number;
     usermove: Vec2;
@@ -219,6 +220,7 @@ class Player extends PlatformerEntity implements Actor {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
 	this.zorder = 1;
 	this.scene = scene;
+	this.shadow = scene.sheet.get(1);
 	this.usermove = new Vec2();
 	this.direction = new Vec2(1,0);
 	this.setShape(shape);
@@ -232,6 +234,17 @@ class Player extends PlatformerEntity implements Actor {
 	return this.tilemap.world;
     }
 
+    render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
+	if (this.isLanded()) {
+	    let rect = (this.shadow as HTMLImageSource).bounds;
+	    drawImageScaled(ctx, (this.shadow as HTMLImageSource).image,
+			    rect.x, rect.y, rect.width, rect.height,
+			    bx+this.bounds.x, by+this.bounds.y,
+			    this.bounds.width, this.bounds.height);
+	}
+	super.render(ctx, bx, by);
+    }
+    
     getShape() {
 	return this.shape;
     }
@@ -239,17 +252,10 @@ class Player extends PlatformerEntity implements Actor {
     setShape(shape: number) {
 	if (this.shape != shape) {
 	    this.shape = shape;
-	    this.src = this.scene.sheet.get(1+shape);
+	    this.src = this.scene.sheet.get(2+shape);
 	}
     }
     
-    setMove(v: Vec2) {
-	this.usermove = v.scale(4);
-	if (v.x != 0) {
-	    this.direction.x = sign(v.x);
-	}
-    }
-
     collide(entity: Entity) {
 	if (entity instanceof Exit) {
 	    this.scene.exitLevel();
@@ -257,6 +263,24 @@ class Player extends PlatformerEntity implements Actor {
 	    (entity as Switch).toggle();
 	} else if (entity instanceof Item) {
 	    this._collide1 = entity;
+	}
+    }
+
+    update() {
+	super.update();
+	this.moveSmart(this.usermove);
+	if (this._collide1 !== null &&
+	    this._collide0 === null) {
+	    this.change();
+	}
+	this._collide0 = this._collide1;
+	this._collide1 = null;
+    }
+    
+    setMove(v: Vec2) {
+	this.usermove = v.scale(4);
+	if (v.x != 0) {
+	    this.direction.x = sign(v.x);
 	}
     }
 
@@ -275,17 +299,6 @@ class Player extends PlatformerEntity implements Actor {
 	    this.bounds.center(), this.direction);
 	this.scene.addObject(obj);
 	playSound(this.scene.app.audios['shoot']);
-    }
-    
-    update() {
-	super.update();
-	this.moveSmart(this.usermove);
-	if (this._collide1 !== null &&
-	    this._collide0 === null) {
-	    this.change();
-	}
-	this._collide0 = this._collide1;
-	this._collide1 = null;
     }
     
     moveSmart(v: Vec2) {
@@ -317,6 +330,7 @@ class Player extends PlatformerEntity implements Actor {
 class Fellow extends PlanningEntity implements Actor {
 
     scene: Game;
+    shadow: ImageSource;
     shape: number;
     mode: number;
     target: Entity;
@@ -327,8 +341,9 @@ class Fellow extends PlanningEntity implements Actor {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
 	this.zorder = 1;
 	this.scene = scene;
+	this.shadow = scene.sheet.get(1);
 	this.shape = shape;
-	this.src = this.scene.sheet.get(1+shape);
+	this.src = this.scene.sheet.get(2+shape);
 	this.mode = 0;
 	this.target = null;
 	this._prevfire = 0;
@@ -338,6 +353,17 @@ class Fellow extends PlanningEntity implements Actor {
 	return this.tilemap.world;
     }
 
+    render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
+	if (this.isLanded()) {
+	    let rect = (this.shadow as HTMLImageSource).bounds;
+	    drawImageScaled(ctx, (this.shadow as HTMLImageSource).image,
+			    rect.x, rect.y, rect.width, rect.height,
+			    bx+this.bounds.x, by+this.bounds.y,
+			    this.bounds.width, this.bounds.height);
+	}
+	super.render(ctx, bx, by);
+    }
+    
     getShape() {
 	return this.shape;
     }
@@ -432,7 +458,7 @@ class Boss extends PlatformerEntity {
     
     update() {
 	super.update();
-	this.src = this.scene.sheet.get(1+rnd(4));
+	this.src = this.scene.sheet.get(2+rnd(4));
     }
 }
 

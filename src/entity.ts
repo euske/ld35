@@ -331,7 +331,7 @@ class PhysicalEntity extends Entity {
 	    let vy = PhysicalEntity.jumpfunc(this.velocity.y, this._jumpt);
 	    this.velocity = this.getMove(new Vec2(this.velocity.x, vy), this.hitbox, false);
 	    this.movePos(this.velocity);
-	    this._landed = (0 <= vy && this.velocity.y == 0);
+	    this._landed = (0 < vy && this.velocity.y == 0);
 	}
     }
 
