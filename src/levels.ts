@@ -8,11 +8,14 @@ enum Tile {
     ITEM = 5,
     DOOR = 6,
     EXIT = 7,
+    SWITCHOFF = 8,
+    SWITCHON = 9,
     
     PLAYER = 10,
     ITEMENT = 11,
     DOORENT = 12,
     EXITENT = 13,
+    SWITCHENT = 14,
     
     SHAPE1 = 20,
     SHAPE2 = 21,
@@ -27,9 +30,10 @@ const TILEMAP = {
     'H': Tile.LADDER,
 
     'P': Tile.PLAYER,
-    'a': Tile.ITEMENT,
+    'c': Tile.ITEMENT,
     'd': Tile.DOORENT,
     'e': Tile.EXITENT,
+    'i': Tile.SWITCHENT,
 
     'A': Tile.SHAPE1,
     'B': Tile.SHAPE2,
@@ -65,6 +69,29 @@ class Level {
 }
 
 const LEVELS = [
+    new Level([			// LEVEL 0
+	//1234567890123456789
+	'.................c.e',
+	'..............##H###',
+	'.....i.........#H...',
+	'..H####..##....dH...',
+	'..H...........######',
+	
+	'...........#........',
+	'....................',
+	'.#######............',
+	'.........###...####H',
+	'...................H',
+	
+	'...................H',
+	'.........H###..##H##',
+	'.....#...H..#....H..',
+	'..P.###..H..#....H..',
+	'####################',
+    ],
+	      "I HAVE NO MEMORY.\nI DON'T KNOW WHO I AM.\n"
+	     ),
+    
     new Level([
 	'.........................',
 	'.........................',

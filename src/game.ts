@@ -77,13 +77,57 @@ class Item extends Entity {
 //  Door
 //
 class Door extends Entity {
+    
     tilemap: TileMap;
     pos: Vec2;
-    constructor(tilemap: TileMap, p: Vec2, bounds: Rect) {
+    
+    constructor(tilemap: TileMap, pos: Vec2, bounds: Rect) {
 	super(bounds, null, bounds);
 	this.tilemap = tilemap;
-	this.pos = p;
-	tilemap.set(p.x, p.y, Tile.DOOR);
+	this.pos = pos;
+	this.tilemap.set(this.pos.x, this.pos.y, Tile.DOOR);
+    }
+
+    open() {
+	this.tilemap.set(this.pos.x, this.pos.y, Tile.NONE);
+    }
+}
+
+
+//  Switch
+//
+class Switch extends Entity {
+
+    scene: Game;
+    src0: ImageSource;
+    src1: ImageSource;
+    swon: boolean;
+    
+    constructor(scene: Game, bounds: Rect, src0: ImageSource, src1: ImageSource) {
+	super(bounds.expand(4, 4, 1,-1), null, bounds);
+	this.scene = scene;
+	this.src0 = src0;
+	this.src1 = src1;
+	this.swon = false;
+	this.updateState();
+    }
+
+    updateState() {
+	this.src = (this.swon)? this.src1 : this.src0;
+    }
+
+    toggle() {
+	if (!this.swon) {
+	    this.swon = true;
+	    let objs = this.scene.layer.findObjectsWithin(
+		(e:Entity) => { return e instanceof Door; }
+	    )
+	    for (let i = 0; i < objs.length; i++) {
+		let door = objs[i] as Door;
+		door.open();
+	    }
+	    this.updateState();
+	}
     }
 }
 
@@ -143,7 +187,7 @@ class Player extends PlatformerEntity implements Actor {
     private _collide1: Entity;
 
     constructor(scene: Game, bounds: Rect) {
-	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
+	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
 	this.zorder = 1;
 	this.scene = scene;
 	this.usermove = new Vec2();
@@ -176,7 +220,11 @@ class Player extends PlatformerEntity implements Actor {
     }
 
     collide(entity: Entity) {
-	if (entity instanceof Item) {
+	if (entity instanceof Exit) {
+	    this.scene.endLevel();
+	} else if (entity instanceof Switch) {
+	    (entity as Switch).toggle();
+	} else if (entity instanceof Item) {
 	    this._collide1 = entity;
 	}
     }
@@ -237,7 +285,7 @@ class Fellow extends PlanningEntity implements Actor {
     private _prevfire: number;
     
     constructor(scene: Game, bounds: Rect, shape: number) {
-	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
+	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
 	this.zorder = 1;
 	this.scene = scene;
 	this.shape = shape;
@@ -332,7 +380,7 @@ class Boss extends PlatformerEntity {
     scene: Game;
     
     constructor(scene: Game, bounds: Rect) {
-	super(scene.tilemap, bounds, null, bounds.inflate(-1, -1));
+	super(scene.tilemap, bounds, null, bounds);
 	this.zorder = 1;
 	this.scene = scene;
     }
@@ -389,6 +437,11 @@ class Game extends GameScene {
 		case Tile.EXITENT:
 		    this.addObject(new Exit(bounds, this.tiles.get(Tile.EXIT)));
 		    break;
+		case Tile.SWITCHENT:
+		    this.addObject(new Switch(this, bounds,
+					      this.tiles.get(Tile.SWITCHOFF),
+					      this.tiles.get(Tile.SWITCHON)));
+		    break;
 		case Tile.SHAPE1:
 		case Tile.SHAPE2:
 		case Tile.SHAPE3:
@@ -398,7 +451,7 @@ class Game extends GameScene {
 		return false;
 	    });
 
-	this.addObject(new Boss(this, this.tilemap.map2coord(new Rect(2,2,8,8))));
+	//this.addObject(new Boss(this, this.tilemap.map2coord(new Rect(2,2,8,8))));
 	
 	this.dialog = new ChatBox(this.screen, this.app.font);
 	this.dialog.zorder = 2;
@@ -408,6 +461,8 @@ class Game extends GameScene {
 	this.dialog.addDisplay(level.text, 2);
 	this.dialog.addPause(30);
 	this.dialog.start(this.layer);
+	
+	this.app.lockKeys();
     }
 
     tick() {
@@ -469,5 +524,9 @@ class Game extends GameScene {
 	    }
 	}
     }
-    
+
+    endLevel() {
+	this.curlevel++;
+	this.init();
+    }
 }

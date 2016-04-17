@@ -286,19 +286,21 @@ interface JumpFunc {
 class PhysicalEntity extends Entity {
 
     velocity: Vec2 = new Vec2();
-    maxspeed: Vec2 = new Vec2(16,16);
+    maxspeed: Vec2 = new Vec2(6,6);
     
     protected _jumpt: number;
     protected _jumpend: number;
+    protected _landed: boolean;
 
     static jumpfunc: JumpFunc = (
-	(vy:number, t:number) => { return (0 <= t && t <= 4)? -8 : vy+2; }
+	(vy:number, t:number) => { return (0 <= t && t <= 5)? -4 : vy+1; }
     );
     
     constructor(bounds: Rect, src: ImageSource=null, hitbox: Rect=null) {
 	super(bounds, src, hitbox);
 	this._jumpt = Infinity;
 	this._jumpend = 0;
+	this._landed = false;
     }
 
     setJump(jumpend: number) {
@@ -322,15 +324,15 @@ class PhysicalEntity extends Entity {
   
     fall() {
 	if (!this.isHolding()) {
-	    this.velocity.y = PhysicalEntity.jumpfunc(this.velocity.y, this._jumpt);
-	    this.velocity = this.getMove(this.velocity, this.hitbox, false);
+	    let vy = PhysicalEntity.jumpfunc(this.velocity.y, this._jumpt);
+	    this.velocity = this.getMove(new Vec2(this.velocity.x, vy), this.hitbox, false);
 	    this.movePos(this.velocity);
+	    this._landed = (0 <= vy && this.velocity.y == 0);
 	}
     }
 
     isLanded() {
-	let v = this.getMove(new Vec2(0, 1), this.hitbox, false);
-	return (0 <= this.velocity.y && v.y == 0);
+	return this._landed;
     }
 
     isHolding() {

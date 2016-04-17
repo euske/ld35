@@ -162,6 +162,18 @@ class ScrollLayer extends Layer {
 	this.window.y = clamp(0, this.window.y, world.height-this.window.height);
     }
 
+    findObjectsWithin(f: (e:Entity)=>boolean=null) {
+	let a:[Entity] = [] as [Entity];
+	for (let i = 0; i < this.entities.length; i++) {
+	    let obj1 = this.entities[i];
+	    if (obj1.alive && obj1.hitbox !== null &&
+		(f === null || f(obj1)) && obj1.hitbox.overlap(this.window)) {
+		a.push(obj1);
+	    }
+	}
+	return a;
+    }
+
     render(ctx: CanvasRenderingContext2D, bx: number, by: number) {
 	bx -= this.window.x;
 	by -= this.window.y;
