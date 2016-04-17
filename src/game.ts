@@ -126,34 +126,42 @@ class Switch extends Entity {
     scene: Game;
     src0: ImageSource;
     src1: ImageSource;
-    swon: boolean;
+    door: Door;
     
     constructor(scene: Game, bounds: Rect, src0: ImageSource, src1: ImageSource) {
 	super(bounds.expand(4, 4, 1,-1), null, bounds);
 	this.scene = scene;
 	this.src0 = src0;
 	this.src1 = src1;
-	this.swon = false;
+	this.door = null;
 	this.updateState();
     }
 
     updateState() {
-	this.src = (this.swon)? this.src1 : this.src0;
+	this.src = (this.door !== null)? this.src1 : this.src0;
     }
 
     toggle() {
-	if (!this.swon) {
-	    this.swon = true;
-	    let objs = this.scene.layer.findObjects(
+	if (this.door === null) {
+	    // find the closest door.
+	    this.scene.layer.findObjects(
 		this.scene.tilemap.world,
-		(e:Entity) => { return e instanceof Door; }
+		(e:Entity) => {
+		    if (e instanceof Door) {
+			if (this.door === null ||
+			    (e.bounds.distance(this.bounds).norm2() <
+			     this.door.bounds.distance(this.bounds).norm2())) {
+			    this.door = e as Door;
+			}
+		    }
+		    return false;
+		}
 	    )
-	    for (let i = 0; i < objs.length; i++) {
-		let door = objs[i] as Door;
-		door.open();
+	    if (this.door !== null) {
+		this.door.open();
+		playSound(this.scene.app.audios['door']);
+		this.updateState();
 	    }
-	    playSound(this.scene.app.audios['door']);
-	    this.updateState();
 	}
     }
 }
