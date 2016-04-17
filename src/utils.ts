@@ -70,6 +70,12 @@ function rnd(a: number, b=0)
     return int(frnd(a, b));
 }
 
+// choice(a)
+function choice<T>(a: [T])
+{
+    return a[rnd(a.length)];
+}
+
 // format: pretty print a number.
 function format(v: number, n=3, c=' ')
 {

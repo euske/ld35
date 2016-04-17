@@ -33,9 +33,9 @@ class ChatBox extends DialogBox {
     border: string;
 
     constructor(screen:Rect, font:Font=null) {
-	super(new Rect(8, 16, screen.width-16, 50), font);
-	this.bounds1 = new Rect(0, 8, screen.width, 56);
-	this.bounds2 = new Rect(0, screen.height-80, screen.width, 56);
+	super(new Rect(8, 16, screen.width-16, 48), font);
+	this.bounds1 = new Rect(0, 8, screen.width, 64);
+	this.bounds2 = new Rect(0, screen.height-72, screen.width, 64);
 	this.bounds = this.bounds1;
 	this.border = 'white';
 	this.autohide = true;
@@ -361,6 +361,9 @@ class Fellow extends PlanningEntity implements Actor {
     
     private _prevfire: number;
     private _enemies: [Entity];
+    static LINES: [string] = [
+	'YO.', 'HAI!', 'HIYA.', 'GOOD DAY.',
+    ];
     
     constructor(scene: Game, bounds: Rect, shape: number, health=3) {
 	super(scene.tilemap, bounds, null, bounds.inflate(-1, 0));
@@ -411,7 +414,7 @@ class Fellow extends PlanningEntity implements Actor {
 		if (entity instanceof Player && !this.greeted) {
 		    if (!this.isPlanRunning()) {
 			if (this.makePlan(entity.hitbox.center())) {
-			    this.shout('YO.');
+			    this.shout(choice(Fellow.LINES));
 			    this.greeted = true;
 			}
 		    }
@@ -463,7 +466,7 @@ class Fellow extends PlanningEntity implements Actor {
 	    }
 	} else {
 	    if (0 < this._enemies.length) {
-		let target = this._enemies[rnd(this._enemies.length)];
+		let target = choice(this._enemies);
 		if (!this.isPlanRunning()) {
 		    if (this.makePlan(target.hitbox.center())) {
 			this.target = target;
@@ -553,7 +556,8 @@ class Game extends GameScene {
 	this.tiles = new ImageSpriteSheet(app.images['tiles'], new Vec2(20,20));
 	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
 	this.healthStatus.zorder = 9;
-	this.curlevel = 2;
+	
+	this.curlevel = 3;
     }
     
     init() {
@@ -600,7 +604,7 @@ class Game extends GameScene {
 	
 	this.dialog = new ChatBox(this.screen, this.app.font);
 	this.dialog.zorder = 8;
-	this.dialog.linespace = 2;
+	this.dialog.linespace = 4;
 	this.dialog.padding = 4;
 	this.dialog.background = 'black';
 	this.dialog.addDisplay(level.text, 2);
@@ -615,7 +619,8 @@ class Game extends GameScene {
 	super.tick();
 	this.scanObjects();
 	this.layer.setCenter(this.tilemap.world, this.player.bounds.inflate(128,64));
-	this.dialog.adjustPosition(this.player.bounds);
+	this.dialog.adjustPosition(this.player.bounds.move(-this.layer.window.x,
+							   -this.layer.window.y));
 	this.dialog.tick();
     }
 
@@ -673,7 +678,7 @@ class Game extends GameScene {
     repeatLevel() {
 	let particle = new Sprite(this.player.bounds, this.sheet.get(6));
 	particle.zorder = 7;
-	particle.duration = 30;
+	particle.duration = 60;
 	particle.died.subscribe(() => {
 	    this.init();
 	});
