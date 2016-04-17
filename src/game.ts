@@ -33,9 +33,9 @@ class ChatBox extends DialogBox {
     border: string;
 
     constructor(screen:Rect, font:Font=null) {
-	super(new Rect(8, 16, screen.width-16, 48), font);
-	this.bounds1 = new Rect(0, 8, screen.width, 64);
-	this.bounds2 = new Rect(0, screen.height-72, screen.width, 64);
+	super(new Rect(32, 0, screen.width-64, 48), font);
+	this.bounds1 = new Rect(0, 16, screen.width, 64);
+	this.bounds2 = new Rect(0, screen.height-64, screen.width, 64);
 	this.bounds = this.bounds1;
 	this.border = 'white';
 	this.autohide = true;
@@ -705,7 +705,7 @@ class Game extends GameScene {
 	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
 	this.healthStatus.zorder = 9;
 	
-	this.curlevel = 0;
+	this.curlevel = 6;
     }
     
     init() {
@@ -759,6 +759,7 @@ class Game extends GameScene {
 		this.tilemap.fill(Tile.NONE, rect);
 		this.boss = new Boss(this, this.tilemap.map2coord(rect))
 		this.addObject(this.boss);
+		playSound(this.app.audios['stomp']);
 	    });
 	    this.addObject(task);
 	}
@@ -768,8 +769,19 @@ class Game extends GameScene {
 	this.dialog.linespace = 4;
 	this.dialog.padding = 4;
 	this.dialog.background = 'black';
-	this.dialog.addDisplay(level.text, 2);
-	this.dialog.addPause(30);
+	if (level.text !== null) {
+	    this.dialog.addDisplay(level.text, 2);
+	    this.dialog.addPause(30);
+	} else {
+	    // ending credit.
+	    let textbox = new TextBox(new Rect(0,0,this.screen.width,120), this.app.bigfont);
+	    textbox.linespace = 10;
+	    textbox.putText(
+		['FACADE', 'BY EUSKE FOR LD35', '', 'HOPE FOR KUMAMOTO'],
+		'center', 'center');
+	    textbox.zorder = 9;
+	    this.addObject(textbox);
+	}
 	this.dialog.start(this.layer);
 
 	this.updateHealth();
@@ -799,7 +811,7 @@ class Game extends GameScene {
 	ctx.fillStyle = 'rgb(0,0,0)';
 	ctx.fillRect(bx, by, this.screen.width, this.screen.height);
 	function ft(x: number, y: number, c: number) {
-	    return (c < 10)? c : Tile.NONE;
+	    return (c < Tile.SPECIAL)? c : Tile.NONE;
 	}
 	this.layer.renderTilesFromBottomLeft(
 	    ctx, bx, by,
@@ -850,6 +862,7 @@ class Game extends GameScene {
 	this.special = 2;
 	let bounds = this.tilemap.map2coord(new Vec2(10, 9));
 	this.addObject(new Exit(bounds, this.tiles.get(Tile.EXIT)));
+	this.app.set_music(null);
 	this.dialog.clear();
 	this.dialog.addDisplay('DID WE... WIN?', 4);
 	this.dialog.addPause(30);

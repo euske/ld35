@@ -10,16 +10,19 @@ enum Tile {
     EXIT = 7,
     SWITCHOFF = 8,
     SWITCHON = 9,
+    MIRROR = 10,
+
+    SPECIAL = 20,
     
-    PLAYER = 10,
-    CHANGERENT = 11,
-    DOORENT = 12,
-    EXITENT = 13,
-    SWITCHENT = 14,
+    PLAYER = 20,
+    CHANGERENT = 21,
+    DOORENT = 22,
+    EXITENT = 23,
+    SWITCHENT = 24,
     
-    SHAPE1 = 20,
-    SHAPE2 = 21,
-    SHAPE3 = 22,
+    SHAPE1 = 30,
+    SHAPE2 = 31,
+    SHAPE3 = 32,
 }
 
 interface CharMap {
@@ -28,6 +31,7 @@ interface CharMap {
 const TILEMAP = {
     '#': Tile.FLOOR1,
     'H': Tile.LADDER,
+    'M': Tile.MIRROR,
 
     'P': Tile.PLAYER,
     'c': Tile.CHANGERENT,
@@ -64,6 +68,9 @@ class Level {
 		let c = TILEMAP[src[j]];
 		if (c === undefined) {
 		    c = Tile.NONE;
+		}
+		if (c == 0 || c == 2) {
+		    c += (i*j+i+j) % 2;
 		}
 		dst.push(c);
 	    }
@@ -225,21 +232,21 @@ const LEVELS = [
     new Level([			// LEVEL 6 (ENDING)
 	//1234567890123456789
 	'....................',
-	'..####..###..#...#..',
-	'..#......#...##..#..',
-	'..###....#...#.#.#..',
-	'..#......#...#..##..',
-	'..#.....###..#...#..',
-	'....................',
-	'....................',
 	'.........P..........',
 	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'....................',
+	'..........M.........',
 	'...######H######....',
 	'.........H..........',
 	'.........H..........',
 	'.........H..........',
 	'####################',
     ],
-	      "THANKS FOR PLAYING!\n"
+	      null
 	     ),
 ];

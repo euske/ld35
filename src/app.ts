@@ -30,6 +30,7 @@ class App {
     audios: AudioDictionary;
     labels: DivDictionary;
     font: Font;
+    bigfont: Font;
     shadowfont: Font;
     colorfont: Font;
 
@@ -64,6 +65,7 @@ class App {
 	this.audios = audios;
 	this.labels = labels;
 	this.font = new Font(this.images['font'], 'white');
+	this.bigfont = new Font(this.images['font'], 'white', 2);
 	this.colorfont = new Font(this.images['font'], null, 2);
 	this.shadowfont = new ShadowFont(this.images['font'], 'white');
 
