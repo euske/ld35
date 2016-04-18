@@ -5,17 +5,10 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <title>Facade</title>
 <script language="javascript" src="js/out.js"></script>
-<body bgcolor="black" text="white" link="cyan" vlink="cyan" onload="run(Game);">
-<h1 align=center>Facade</h1>
-<p>
-<u>How to play</u>: Arrow Keys...Move, Space...Jump
-<div style="margin: 1em;" align=center>
-  <div style="position:relative; width:640px; height:480px;">
-    <canvas id="main" 
-	    style="position:absolute; top:0; left:0; background:gray;"
-	    width="640" height="480"></canvas>
-  </div>
-</div>
+<body onload="run(Game);">
+  <canvas id="main" 
+	  style="position:absolute; top:0; left:0; background:gray;"
+	  width="640" height="480"></canvas>
 <div style="display:none;">
   <img id="font" src="assets/font.png">
   <img id="sprites" src="assets/sprites.png">
@@ -33,8 +26,5 @@
   <audio id="music" src="assets/music.mp3" preload="auto">
   <audio id="boss" src="assets/boss.mp3" preload="auto">
   <audio id="ending" src="assets/ending.mp3" preload="auto">
-</div>
-<div>
-Ludum Dare 35, "<a href="http://ludumdare.com/compo/ludum-dare-35/?action=preview&amp;uid=17675">Shapeshift</a>"
 </div>
 </body>

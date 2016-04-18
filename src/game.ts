@@ -705,7 +705,7 @@ class Game extends GameScene {
 	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
 	this.healthStatus.zorder = 9;
 	
-	this.curlevel = 6;
+	this.curlevel = 0;
     }
     
     init() {
@@ -765,6 +765,7 @@ class Game extends GameScene {
 		    this.app.set_music(this.app.audios['boss'], 0.05, 2.95);
 		});
 		this.addObject(task);
+		this.app.set_music(null);
 	    }
 	    break;
 	case 3:

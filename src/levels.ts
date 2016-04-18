@@ -202,8 +202,9 @@ const LEVELS = [
 	'####################',
     ],
 	      "WHAT MAKES THEM HATE EACH OTHER?\n"+
-	      "TO ME, THEY DON'T SEEM VERY DIFFERENT.\n"+
-	      "DO LOOKS MATTER THAT MUCH TO THEM?\n"
+	      "TO ME, THEY DON'T SEEM VERY\n"+
+	      "DIFFERENT. DO LOOKS MATTER THAT\n"+
+	      "MUCH TO THEM?\n"
 	     ),
     
     new Level([			// LEVEL 5
