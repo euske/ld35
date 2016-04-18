@@ -241,7 +241,9 @@ class App {
 	this._loop_start = start;
 	this._loop_end = end;
 	if (this._music !== null) {
-	    this._music.currentTime = 0;
+	    if (0 < this._music.readyState) {
+		this._music.currentTime = 0;
+	    }
 	    this._music.play();
 	}
     }
