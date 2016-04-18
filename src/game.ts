@@ -705,7 +705,7 @@ class Game extends GameScene {
 	this.healthStatus = new TextBox(new Rect(4,4,64,16), app.colorfont);
 	this.healthStatus.zorder = 9;
 	
-	this.curlevel = 6;
+	this.curlevel = 0;
     }
     
     init() {
@@ -751,17 +751,37 @@ class Game extends GameScene {
 		return false;
 	    });
 
-	if (this.special == 1) {
-	    let task = new Task();
-	    task.duration = 60;
-	    task.died.subscribe(() => {
-		let rect = new Rect(6, 0, 8, 8);
-		this.tilemap.fill(Tile.NONE, rect);
-		this.boss = new Boss(this, this.tilemap.map2coord(rect))
-		this.addObject(this.boss);
-		playSound(this.app.audios['stomp']);
-	    });
-	    this.addObject(task);
+	switch (this.special) {
+	case 1:
+	    {
+		let task = new Task();
+		task.duration = 60;
+		task.died.subscribe(() => {
+		    let rect = new Rect(6, 0, 8, 8);
+		    this.tilemap.fill(Tile.NONE, rect);
+		    this.boss = new Boss(this, this.tilemap.map2coord(rect))
+		    this.addObject(this.boss);
+		    playSound(this.app.audios['stomp']);
+		    this.app.set_music(this.app.audios['boss'], 0.05, 2.95);
+		});
+		this.addObject(task);
+	    }
+	    break;
+	case 3:
+	    {
+		// ending credit.
+		let textbox = new TextBox(new Rect(0,0,this.screen.width,120), this.app.bigfont);
+		textbox.linespace = 10;
+		textbox.putText(
+		    ['FACADE', 'BY EUSKE FOR LD35', '', 'HOPE FOR KUMAMOTO'],
+		    'center', 'center');
+		textbox.zorder = 9;
+		this.addObject(textbox);
+	    }
+	    break;
+	default:
+	    this.app.set_music(this.app.audios['music'], 0.05, 28.75);
+	    break;
 	}
 	
 	this.dialog = new ChatBox(this.screen, this.app.font);
@@ -772,15 +792,6 @@ class Game extends GameScene {
 	if (level.text !== null) {
 	    this.dialog.addDisplay(level.text, 2);
 	    this.dialog.addPause(30);
-	} else {
-	    // ending credit.
-	    let textbox = new TextBox(new Rect(0,0,this.screen.width,120), this.app.bigfont);
-	    textbox.linespace = 10;
-	    textbox.putText(
-		['FACADE', 'BY EUSKE FOR LD35', '', 'HOPE FOR KUMAMOTO'],
-		'center', 'center');
-	    textbox.zorder = 9;
-	    this.addObject(textbox);
 	}
 	this.dialog.start(this.layer);
 
