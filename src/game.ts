@@ -810,6 +810,18 @@ class Game extends GameScene {
 	this.dialog.tick();
     }
 
+    keydown(keyCode: number) {
+	super.keydown(keyCode);
+	switch (keyCode) {
+	case 112:		// F1
+	    PlanningEntity.debug = !PlanningEntity.debug;
+	    break;
+	case 113:		// F2
+	    this.exitLevel();
+	    break;
+	}
+    }
+
     set_dir(v: Vec2) {
 	super.set_dir(v);
 	this.player.setMove(this.app.key_dir);
